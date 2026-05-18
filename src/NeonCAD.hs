@@ -1,32 +1,18 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE FlexibleContexts #-}
-module NeonCAD where
+{-# LANGUAGE DeriveFunctor #-}
+module NeonCAD (
+  render2D,
+  circleR,
+  runNeonM,
+  fn,
+) where
 
-import OpenSCAD.Model
-
-
-type M = GlobalOpts -> Model3D
-
-
-data GlobalOpts = GlobalOpts {
-    defaultSize :: Double
-}
-
----
+import OpenSCAD.Model (Model2D(..), Primitive2D(..), render2D, Facets(..), Model3D(..), V2, V3)
+import Data.Functor.Identity (Identity (runIdentity))
 
 type Diameter = Double
 type Radius = Double
 
-
 data Radial = Radius Double | Diameter Double
-
-
-type MkOpts a = a -> a
-
-class Monad m => C m where
-    getGlobalOpts :: m GlobalOpts
-
 
 class ToModel2D a m where
     toModel2D :: a -> m Model2D
@@ -34,38 +20,71 @@ class ToModel2D a m where
 
 newtype Convexity = Convexity Int
 
+class (Monad m) => MonadNeon m where
+  askFacets :: m Facets
+  localFacets :: Facets -> m a -> m a
+
+data NeonT m a = NeonT (Facets -> m a)
+  deriving (Functor)
+
+type NeonM = NeonT Identity
+
+runNeonT :: Facets -> NeonT m a -> m a
+runNeonT factes (NeonT f) = f factes
+
+runNeonM :: Facets -> NeonM a -> a
+runNeonM facets neon = runIdentity $ runNeonT facets neon
+
+instance (Monad m) => Applicative (NeonT m) where
+  pure x = NeonT $ \_ -> pure x
+  f <*> v = NeonT $ \ r -> runNeonT r f <*> runNeonT r v
+
+instance (Monad m) => Monad (NeonT m) where
+  return = pure
+  a >>= f = NeonT $ \ r -> runNeonT r a >>= \b -> runNeonT r (f b)
+
+instance Monad m => MonadNeon (NeonT m) where
+  askFacets = NeonT pure
+  localFacets facets m = undefined
+
+-------------------------------------------------------------------------------
+-- Factes
+-------------------------------------------------------------------------------
+
+fn :: Int -> Facets
+fn i = Facets { fn = Just i, fa = Nothing, fs = Nothing }
+
+
+radialToDiameter :: Radial -> Double
+radialToDiameter (Radius r) = r * 2
+radialToDiameter (Diameter d) = d
+
 -------------------------------------------------------------------------------
 -- 2D / Circle
 -------------------------------------------------------------------------------
 
 data Circle = Circle {
-  size :: Radial,
-  facets :: Maybe Facets
+  size :: Radial
 }
 
-instance ToModel2D Circle m where
-    toModel2D = undefined
+instance MonadNeon m => ToModel2D Circle m where
+    toModel2D (Circle {size}) = do
+      facets <- askFacets
+      pure $ Primitive2D (Circle2D {d = radialToDiameter size, _facets = Just facets})
 
 defaultCircle :: Circle
 defaultCircle = Circle {
-  size = Diameter 100,
-  facets = Nothing
+  size = Diameter 100
 }
 
-circle :: Radial -> m Model2D
-circle = undefined
+circle :: MonadNeon m => Radial -> m Model2D
+circle r = toModel2D $ Circle { size = r }
 
-circleR :: Double -> m Model2D
-circleR = undefined
+circleR :: MonadNeon m => Double -> m Model2D
+circleR r = circle (Radius r)
 
-circleD :: Double -> m Model2D
-circleD = undefined
-
-circleR' :: Double -> Facets -> m Model2D
-circleR' = undefined
-
-circleD' :: Double -> Facets -> m Model2D
-circleD' = undefined
+circleD :: MonadNeon m => Double -> m Model2D
+circleD d = circle (Diameter d)
 
 -------------------------------------------------------------------------------
 -- 2D / Ellipse
@@ -242,17 +261,14 @@ data Projection = Projection {
   cut :: Maybe Bool
 }
 
-mkProjection :: Projection -> m Model2D
-mkProjection = undefined
+-- mkProjection :: Projection -> m Model2D
+-- mkProjection = undefined
 
-mkProjection' :: C m => MkOpts Projection -> m Model2D
-mkProjection' = undefined
+-- projection :: [m Model3D] -> m Model2D
+-- projection = undefined
 
-projection :: [m Model3D] -> m Model2D
-projection = undefined
-
-projectionCut :: [m Model3D] -> m Model2D
-projectionCut = undefined
+-- projectionCut :: [m Model3D] -> m Model2D
+-- projectionCut = undefined
 
 
 -------------------------------------------------------------------------------
