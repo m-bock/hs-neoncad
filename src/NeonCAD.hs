@@ -1,13 +1,18 @@
 {- FOURMOLU_DISABLE -}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Eta reduce" #-}
 
 module NeonCAD (
   render2D, render3D,
-  circleR,
+  circleR, circleD,
+  ellipseR, ellipseD,
   union2D,
   moveXYZ, moveXY, moveXZ, moveYZ, moveX, moveY, moveZ,
   runNeonM, runNeonT,
   fn, fa, fs, defaultFacets,
   askFacets, localFacets,
+  Model2D, Model3D, V2, V3, Facets,
+  MonadNeon
 ) where
 
 import OpenSCAD.Model
@@ -43,25 +48,48 @@ class ToModel2D a m where
 -------------------------------------------------------------------------------
 
 class MoveX a m where
-  moveX :: Double -> [m a] -> m a
+  moveX :: Double -> m a -> m a
 
 class MoveY a m where
-  moveY :: Double -> [m a] -> m a
+  moveY :: Double -> m a -> m a
 
 class MoveZ a m where
-  moveZ :: Double -> [m a] -> m a
+  moveZ :: Double -> m a -> m a
 
 class MoveXY a m where
-  moveXY :: V2 Double -> [m a] -> m a
+  moveXY :: V2 Double -> m a -> m a
 
 class MoveXZ a m where
-  moveXZ :: V2 Double -> [m a] -> m a
+  moveXZ :: V2 Double -> m a -> m a
 
 class MoveYZ a m where
-  moveYZ :: V2 Double -> [m a] -> m a
+  moveYZ :: V2 Double -> m a -> m a
 
 class MoveXYZ a m where
-  moveXYZ :: V3 Double -> [m a] -> m a
+  moveXYZ :: V3 Double -> m a -> m a
+
+class Resize a m where
+  resize :: V2 ResizeOp -> m a -> m a
+
+-------------------------------------------------------------------------------
+-- Classes / Resize
+-------------------------------------------------------------------------------
+
+class ResizeXY a m where
+  resizeXY :: V2 Double -> m a -> m a
+
+class ResizeX a m where
+  resizeX :: Double -> m a -> m a
+
+class ResizeY a m where
+  resizeY :: Double -> m a -> m a
+
+class ResizeAutoX a m where
+  resizeAutoX :: Double -> m a -> m a
+
+class ResizeAutoY a m where
+  resizeAutoY :: Double -> m a -> m a
+
 
 -------------------------------------------------------------------------------
 -- Monad
@@ -152,38 +180,30 @@ circleD d = circle (Diameter d)
 -------------------------------------------------------------------------------
 
 data Ellipse = Ellipse {
-  sizeX :: Radial,
-  sizeY :: Radial,
-  facets :: Maybe Facets
+  size :: V2 Radial
 }
 
-instance ToModel2D Ellipse m where
-    toModel2D = undefined
+instance MonadNeon m => ToModel2D Ellipse m where
+    toModel2D (Ellipse {size = (sizeX, sizeY)}) = do
+      let diaX = radialToDiameter sizeX
+          diaY = radialToDiameter sizeY
+          diaMax = max diaX diaY 
+      resizeXY (diaX, diaY) $ circleR diaMax
 
 defaultEllipse :: Ellipse
 defaultEllipse = Ellipse {
-  sizeX = Diameter 100,
-  sizeY = Diameter 100,
-  facets = Nothing
+  size = (Diameter 100, Diameter 100)
 }
 
-ellipse :: V2 Radial -> m Model2D
-ellipse = undefined
+ellipse :: MonadNeon m => V2 Radial -> m Model2D
+ellipse size = toModel2D $ Ellipse { size = size }
 
-ellipse' :: V2 Radial -> Facets -> m Model2D
-ellipse' = undefined
+ellipseR :: MonadNeon m => V2 Double -> m Model2D
+ellipseR (rx, ry) = ellipse (Radius rx, Radius ry)
 
-ellipseR :: V2 Double -> m Model2D
-ellipseR = undefined
+ellipseD :: MonadNeon m => V2 Double -> m Model2D
+ellipseD (rx, ry) = ellipse (Diameter rx, Diameter ry)
 
-ellipseD :: V2 Double -> m Model2D
-ellipseD = undefined
-
-ellipseR' :: V2 Double -> Facets -> m Model2D
-ellipseR' = undefined
-
-ellipseD' :: V2 Double -> Facets -> m Model2D
-ellipseD' = undefined
 
 -------------------------------------------------------------------------------
 -- 2D / Rect
@@ -276,13 +296,38 @@ scale2D = undefined
 -- 2D / Resize
 -------------------------------------------------------------------------------
 
-data ResizeSpec2D = ResizeSpec2D {
-  size :: V2 Double,
-  auto :: V2 Bool
-}
+data ResizeOp = Auto | Keep | Set Double
 
-resizeBySpec2D :: ResizeSpec2D -> Model2D -> m Model2D
-resizeBySpec2D = undefined
+instance MonadNeon m => Resize Model2D m where
+  resize (x, y) modelM = do
+    model <- modelM
+    let (valX, autoX) = getValueAndAuto x
+        (valY, autoY) = getValueAndAuto y
+    pure $ Transform2D (Resize2D
+      { newSize = (valX,valY)
+      , auto = Just (autoX, autoY)
+      }) [model]
+
+getValueAndAuto :: ResizeOp -> (Double, Bool)
+getValueAndAuto op = case op of
+  Auto -> (0, True)
+  Keep -> (0, False)
+  Set d -> (d, False)
+
+instance MonadNeon m => ResizeXY Model2D m where
+  resizeXY (x, y) modelM = resize (Set x, Set y) modelM
+
+instance MonadNeon m => ResizeX Model2D m where
+  resizeX x modelM = resize (Set x, Keep) modelM
+
+instance MonadNeon m => ResizeY Model2D m where
+  resizeY y modelM = resize (Keep, Set y) modelM
+
+instance MonadNeon m => ResizeAutoX Model2D m where
+  resizeAutoX val modelM = resize (Set val, Auto) modelM
+
+instance MonadNeon m => ResizeAutoY Model2D m where
+  resizeAutoY val modelM = resize (Auto, Set val) modelM
 
 resize2D :: V2 Double -> m Model2D
 resize2D = undefined
@@ -338,9 +383,9 @@ rotateAxis2D = undefined
 --   moveZ z modelsM = move2D (0, 0, z) modelsM
 
 instance MonadNeon m => MoveXYZ Model2D m where
-  moveXYZ v modelsM = do
-    models <- sequence modelsM
-    pure $ Transform2D (Translate2D v) models
+  moveXYZ v modelM = do
+    model <- modelM
+    pure $ Transform2D (Translate2D v) [model]
 
 instance MonadNeon m => MoveXY Model2D m where
   moveXY (x, y) modelsM = moveXYZ (x, y, 0) modelsM
