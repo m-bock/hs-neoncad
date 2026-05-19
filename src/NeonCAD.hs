@@ -6,6 +6,7 @@ module NeonCAD (
   render2D, render3D,
   circleR, circleD,
   ellipseR, ellipseD,
+  rect, rectCenter,
   union2D,
   moveXYZ, moveXY, moveXZ, moveYZ, moveX, moveY, moveZ,
   runNeonM, runNeonT,
@@ -159,7 +160,7 @@ data Circle = Circle {
 instance MonadNeon m => ToModel2D Circle m where
     toModel2D (Circle {size}) = do
       facets <- askFacets
-      pure $ Primitive2D (Circle2D {d = radialToDiameter size, _facets = Just facets})
+      pure $ Primitive2D Nothing (Circle2D {d = radialToDiameter size, _facets = Just facets})
 
 defaultCircle :: Circle
 defaultCircle = Circle {
@@ -214,8 +215,9 @@ data Rect = Rect {
   center :: Bool
 }
 
-instance ToModel2D Rect m where
-  toModel2D = undefined
+instance MonadNeon m => ToModel2D Rect m where
+  toModel2D (Rect {size, center}) = pure $
+    Primitive2D Nothing (Square2D {size = size, center = Just center})
 
 defaultRect :: Rect
 defaultRect = Rect {
@@ -223,11 +225,11 @@ defaultRect = Rect {
   center = False
 }
 
-rect :: V2 Double -> m Model2D
-rect = undefined
+rect :: MonadNeon m => V2 Double -> m Model2D
+rect size = toModel2D $ Rect { size = size, center = False }
 
-rectCenter :: V2 Double -> m Model2D
-rectCenter = undefined
+rectCenter :: MonadNeon m => V2 Double -> m Model2D
+rectCenter size = toModel2D $ Rect { size = size, center = True }
 
 -------------------------------------------------------------------------------
 -- 2D / Square
@@ -303,7 +305,7 @@ instance MonadNeon m => Resize Model2D m where
     model <- modelM
     let (valX, autoX) = getValueAndAuto x
         (valY, autoY) = getValueAndAuto y
-    pure $ Transform2D (Resize2D
+    pure $ Transform2D Nothing (Resize2D
       { newSize = (valX,valY)
       , auto = Just (autoX, autoY)
       }) [model]
@@ -385,7 +387,7 @@ rotateAxis2D = undefined
 instance MonadNeon m => MoveXYZ Model2D m where
   moveXYZ v modelM = do
     model <- modelM
-    pure $ Transform2D (Translate2D v) [model]
+    pure $ Transform2D Nothing (Translate2D v) [model]
 
 instance MonadNeon m => MoveXY Model2D m where
   moveXY (x, y) modelsM = moveXYZ (x, y, 0) modelsM
@@ -417,7 +419,7 @@ instance MonadNeon m => MoveZ Model2D m where
 union2D :: (MonadNeon m) => [m Model2D] -> m Model2D
 union2D modelsM = do
   models <- sequence modelsM
-  pure $ Transform2D Union2D models
+  pure $ Transform2D Nothing Union2D models
 
 -------------------------------------------------------------------------------
 -- 

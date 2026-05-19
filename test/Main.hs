@@ -23,5 +23,9 @@ main = do
                         [ ellipseR (50, 30)
                         , ellipseD (50, 30)
                         ]
+                    , spreadX
+                        [ rect (50, 30)
+                        , rectCenter (50, 30)
+                        ]
                     ]
         )

@@ -3,4 +3,4 @@ packages: .
 source-repository-package
   type: git
   location: https://github.com/m-bock/hs-openscad
-  tag: 999c2d2d691ed0b283d09a897b79dc2e33ea9785
+  tag: c873c74e93662b34238a8831e77607dbe3158d7d
