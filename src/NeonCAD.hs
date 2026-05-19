@@ -7,6 +7,7 @@ module NeonCAD (
   circleR, circleD,
   ellipseR, ellipseD,
   rect, rectCenter,
+  square, squareCenter,
   union2D,
   moveXYZ, moveXY, moveXZ, moveYZ, moveX, moveY, moveZ,
   runNeonM, runNeonT,
@@ -240,8 +241,9 @@ data Square = Square {
   center :: Bool
 }
 
-instance ToModel2D Square m where
-  toModel2D = undefined
+instance MonadNeon m => ToModel2D Square m where
+  toModel2D (Square {size, center}) = pure $
+    Primitive2D Nothing (Square2D {size = (size, size), center = Just center})
 
 defaultSquare :: Square
 defaultSquare = Square {
@@ -249,11 +251,11 @@ defaultSquare = Square {
   center = False
 }
 
-square :: Double -> m Model2D
-square = undefined
+square :: MonadNeon m => Double -> m Model2D
+square size = toModel2D $ Square { size = size, center = False }
 
-squareCenter :: Double -> m Model2D
-squareCenter = undefined
+squareCenter :: MonadNeon m => Double -> m Model2D
+squareCenter size = toModel2D $ Square { size = size, center = True }
 
 -------------------------------------------------------------------------------
 -- 2D / Polygon

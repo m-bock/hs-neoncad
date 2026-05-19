@@ -27,5 +27,9 @@ main = do
                         [ rect (50, 30)
                         , rectCenter (50, 30)
                         ]
+                    , spreadX
+                        [ square 50
+                        , squareCenter 50
+                        ]
                     ]
         )

@@ -23,4 +23,11 @@ union(){
       translate(v=[100.0, 0.0, 0.0])
         square(size=[50.0, 30.0], center=true);
     }
+  translate(v=[0.0, 300.0, 0.0])
+    union(){
+      translate(v=[0.0, 0.0, 0.0])
+        square(size=[50.0, 50.0], center=false);
+      translate(v=[100.0, 0.0, 0.0])
+        square(size=[50.0, 50.0], center=true);
+    }
 }
