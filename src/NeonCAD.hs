@@ -8,8 +8,12 @@ module NeonCAD (
   ellipseR, ellipseD,
   rect, rectCenter,
   square, squareCenter,
+  polygon,
   union2D,
   moveXYZ, moveXY, moveXZ, moveYZ, moveX, moveY, moveZ,
+  rotateZ,
+  mirrorXY, mirrorX, mirrorY,
+  colorRGB, colorRGBA, colorA,
   runNeonM, runNeonT,
   fn, fa, fs, defaultFacets,
   askFacets, localFacets,
@@ -25,6 +29,7 @@ import OpenSCAD.Model
   , render2D, render3D
   )
 import Data.Functor.Identity (Identity (runIdentity))
+
 
 -------------------------------------------------------------------------------
 -- Types
@@ -92,8 +97,51 @@ class ResizeAutoX a m where
 class ResizeAutoY a m where
   resizeAutoY :: Double -> m a -> m a
 
+-------------------------------------------------------------------------------
+-- Classes / Rotate
+-------------------------------------------------------------------------------
+
+class RotateX a m where
+  rotateX :: Double -> m a -> m a
+
+class RotateY a m where
+  rotateY :: Double -> m a -> m a
+
+class RotateZ a m where
+  rotateZ :: Double -> m a -> m a
+
+--- ...
 
 -------------------------------------------------------------------------------
+-- Classes / Mirror
+-------------------------------------------------------------------------------
+
+class MirrorXY a m where
+  mirrorXY :: V2 Double -> m a -> m a
+
+class MirrorX a m where
+  mirrorX :: m a -> m a
+
+class MirrorY a m where
+  mirrorY :: m a -> m a
+
+-------------------------------------------------------------------------------
+-- Classes / Color
+-------------------------------------------------------------------------------
+
+class Color a m where
+  color :: Maybe (V3 Double) -> Maybe Double -> m a -> m a
+
+class ColorRGB a m where
+  colorRGB :: V3 Double -> m a -> m a
+
+class ColorRGBA a m where
+  colorRGBA :: V3 Double -> Double -> m a -> m a
+
+class ColorA a m where
+  colorA :: Double -> m a -> m a
+
+--------------------------------------------------------
 -- Monad
 -------------------------------------------------------------------------------
 
@@ -261,33 +309,29 @@ squareCenter size = toModel2D $ Square { size = size, center = True }
 -- 2D / Polygon
 -------------------------------------------------------------------------------
 
+-- Paths are not supported yet, because they can be modeled with difference.
+-- Maybe in the future paths can be added for ergonomics if needed.
+
 data Polygon = Polygon {
   points :: [V2 Double],
-  paths :: Maybe [[Int]],
-  convexity :: Maybe Int
+  convexity :: Int
 }
-
-instance ToModel2D Polygon m where
-  toModel2D = undefined
 
 defaultPolygon :: Polygon
 defaultPolygon = Polygon {
     points = [(0, 0), (100, 0), (100, 100), (0, 100)],
-    paths = Nothing,
-    convexity = Nothing
+    convexity = defaultConvexity
 }
 
-polygon :: [V2 Double] -> m Model2D
-polygon = undefined
+defaultConvexity :: Int
+defaultConvexity = 10
 
-polygon' :: [V2 Double] -> Convexity -> m Model2D
-polygon' = undefined
+instance MonadNeon m => ToModel2D Polygon m where
+  toModel2D (Polygon {points, convexity}) = pure $
+    Primitive2D Nothing (Polygon2D {points = points, paths = Nothing, convexity = Just convexity})
 
-polygonWithPaths :: [V2 Double] -> [[Int]] -> m Model2D
-polygonWithPaths = undefined
-
-polygonWithPaths' :: [V2 Double] -> [[Int]] -> Convexity -> m Model2D
-polygonWithPaths' = undefined
+polygon :: MonadNeon m => [V2 Double] -> m Model2D
+polygon points = toModel2D $ Polygon { points = points, convexity = defaultConvexity }
 
 -------------------------------------------------------------------------------
 -- 2D / Scale
@@ -333,58 +377,18 @@ instance MonadNeon m => ResizeAutoX Model2D m where
 instance MonadNeon m => ResizeAutoY Model2D m where
   resizeAutoY val modelM = resize (Auto, Set val) modelM
 
-resize2D :: V2 Double -> m Model2D
-resize2D = undefined
-
-resizeAuto2D :: V2 (Maybe Double) -> m Model2D
-resizeAuto2D = undefined
-
-
 -------------------------------------------------------------------------------
--- !! 2D / RotateEuler
+-- 2D / Rotate
 -------------------------------------------------------------------------------
 
--- rotateX, rotateY, rotateXY
-
-rotateEuler2D :: V2 Double -> m Model2D
-rotateEuler2D = undefined
-
-newtype Degree = Degree Double
-
-data RotateAxis2D = RotateAxis2D {
-  angle :: Degree,
-  pivot :: V2 Double
-}
-
-rotateAxisBy2D :: RotateAxis2D -> m Model2D
-rotateAxisBy2D = undefined
-
-rotateAxis2D :: Degree -> V2 Double -> m Model2D
-rotateAxis2D = undefined
+instance MonadNeon m => RotateZ Model2D m where
+  rotateZ angle modelM = do
+    model <- modelM
+    pure $ Transform2D Nothing (RotateAxis2D {a = angle, mv2 = Nothing}) [model]
 
 -------------------------------------------------------------------------------
--- ...
+-- 2D / Move
 -------------------------------------------------------------------------------
-
--- moveXY :: MonadNeon m => V2 Double -> [m Model2D] -> m Model2D
--- moveXY (x, y) modelsM = do
---   models <- sequence modelsM
---   pure $ Transform2D (Translate2D (x, y, 0)) models
-
--- moveX :: MonadNeon m => Double -> [m Model2D] -> m Model2D
--- moveX2D x mod = move2D (x, 0) mod
-
--- moveY2D :: MonadNeon m => Double -> [m Model2D] -> m Model2D
--- moveY2D y mod = move2D (0, y) mod
-
--- instance MonadNeon m => MoveX Model2D m where
---   moveX x modelsM = undefined --move2D (x, 0) modelsM
-
--- instance MonadNeon m => Move (V2 Double) Model2D m where
---   move v modelsM = undefined --move2D v modelsM
-
--- instance MonadNeon m => MoveZ Model2D m where
---   moveZ z modelsM = move2D (0, 0, z) modelsM
 
 instance MonadNeon m => MoveXYZ Model2D m where
   moveXYZ v modelM = do
@@ -393,7 +397,6 @@ instance MonadNeon m => MoveXYZ Model2D m where
 
 instance MonadNeon m => MoveXY Model2D m where
   moveXY (x, y) modelsM = moveXYZ (x, y, 0) modelsM
-
 
 instance MonadNeon m => MoveXZ Model2D m where
   moveXZ (x, z) modelsM = moveXYZ (x, 0, z) modelsM
@@ -409,6 +412,39 @@ instance MonadNeon m => MoveY Model2D m where
 
 instance MonadNeon m => MoveZ Model2D m where
   moveZ z modelsM = moveXYZ (0, 0, z) modelsM
+
+-------------------------------------------------------------------------------
+-- 2D / Mirror
+-------------------------------------------------------------------------------
+
+instance MonadNeon m => MirrorXY Model2D m where
+  mirrorXY (x, y) modelM = do
+    model <- modelM
+    pure $ Transform2D Nothing (Mirror2D {v2 = (x, y)}) [model]
+
+instance MonadNeon m => MirrorX Model2D m where
+  mirrorX modelM = mirrorXY (1, 0) modelM
+
+instance MonadNeon m => MirrorY Model2D m where
+  mirrorY modelM = mirrorXY (0, 1) modelM
+
+-------------------------------------------------------------------------------
+-- 2D / Color
+-------------------------------------------------------------------------------
+
+instance MonadNeon m => Color Model2D m where
+  color c a modelM = do
+    model <- modelM
+    pure $ Transform2D Nothing (Color2D {c = c, alpha = a}) [model]
+
+instance MonadNeon m => ColorRGB Model2D m where
+  colorRGB c modelM = color (Just c) Nothing modelM
+
+instance MonadNeon m => ColorRGBA Model2D m where
+  colorRGBA c a modelM = color (Just c) (Just a) modelM
+
+instance MonadNeon m => ColorA Model2D m where
+  colorA a modelM = color Nothing (Just a) modelM
 
 -------------------------------------------------------------------------------
 -- ...
