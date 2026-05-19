@@ -1,30 +1,40 @@
-{-# LANGUAGE DeriveFunctor #-}
 module NeonCAD (
-  render2D,
+  render2D, render3D,
   circleR,
-  runNeonM,
-  fn,
+  runNeonM, runNeonT,
+  fn, fa, fs, defaultFacets,
 ) where
 
-import OpenSCAD.Model (Model2D(..), Primitive2D(..), render2D, Facets(..), Model3D(..), V2, V3)
+import OpenSCAD.Model
+  ( Model2D(..), Primitive2D(..), Facets(..), Model3D(..), V2, V3
+  , render2D, render3D
+  )
 import Data.Functor.Identity (Identity (runIdentity))
 
-type Diameter = Double
-type Radius = Double
+-------------------------------------------------------------------------------
+-- Types
+-------------------------------------------------------------------------------
 
 data Radial = Radius Double | Diameter Double
 
-class ToModel2D a m where
-    toModel2D :: a -> m Model2D
-
-
 newtype Convexity = Convexity Int
+
+-------------------------------------------------------------------------------
+-- Classes
+-------------------------------------------------------------------------------
 
 class (Monad m) => MonadNeon m where
   askFacets :: m Facets
   localFacets :: Facets -> m a -> m a
 
-data NeonT m a = NeonT (Facets -> m a)
+class ToModel2D a m where
+    toModel2D :: a -> m Model2D
+
+-------------------------------------------------------------------------------
+-- Monad
+-------------------------------------------------------------------------------
+
+newtype NeonT m a = NeonT (Facets -> m a)
   deriving (Functor)
 
 type NeonM = NeonT Identity
@@ -45,15 +55,33 @@ instance (Monad m) => Monad (NeonT m) where
 
 instance Monad m => MonadNeon (NeonT m) where
   askFacets = NeonT pure
-  localFacets facets m = undefined
+  localFacets facets m = NeonT $ \_ -> runNeonT facets m
 
 -------------------------------------------------------------------------------
 -- Factes
 -------------------------------------------------------------------------------
 
-fn :: Int -> Facets
-fn i = Facets { fn = Just i, fa = Nothing, fs = Nothing }
+-- Usage e.g.: `fn 10 <> fa 0.1 <> fs 0.1`
 
+fn :: Int -> Facets
+fn i = mempty { fn = Just i }
+
+fa :: Double -> Facets
+fa d = mempty { fa = Just d }
+
+fs :: Double -> Facets
+fs d = mempty { fs = Just d }
+
+defaultFacets :: Facets
+defaultFacets = Facets
+  { fn = Nothing
+  , fa = Just 6
+  , fs = Just 0.5
+  }
+
+-------------------------------------------------------------------------------
+-- Helpers
+-------------------------------------------------------------------------------
 
 radialToDiameter :: Radial -> Double
 radialToDiameter (Radius r) = r * 2
@@ -228,6 +256,7 @@ resize2D = undefined
 
 resizeAuto2D :: V2 (Maybe Double) -> m Model2D
 resizeAuto2D = undefined
+
 
 -------------------------------------------------------------------------------
 -- 2D / RotateEuler
