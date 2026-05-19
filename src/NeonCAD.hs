@@ -1,12 +1,20 @@
+{- FOURMOLU_DISABLE -}
+
 module NeonCAD (
   render2D, render3D,
   circleR,
+  union2D,
+  moveXYZ, moveXY, moveXZ, moveYZ, moveX, moveY, moveZ,
   runNeonM, runNeonT,
   fn, fa, fs, defaultFacets,
+  askFacets, localFacets,
 ) where
 
 import OpenSCAD.Model
-  ( Model2D(..), Primitive2D(..), Facets(..), Model3D(..), V2, V3
+  ( Model2D(..), Primitive2D(..), Transform2D(..)
+  , Model3D(..)
+  , V2, V3
+  , Facets(..)
   , render2D, render3D
   )
 import Data.Functor.Identity (Identity (runIdentity))
@@ -29,6 +37,31 @@ class (Monad m) => MonadNeon m where
 
 class ToModel2D a m where
     toModel2D :: a -> m Model2D
+
+-------------------------------------------------------------------------------
+-- Classes / Move
+-------------------------------------------------------------------------------
+
+class MoveX a m where
+  moveX :: Double -> [m a] -> m a
+
+class MoveY a m where
+  moveY :: Double -> [m a] -> m a
+
+class MoveZ a m where
+  moveZ :: Double -> [m a] -> m a
+
+class MoveXY a m where
+  moveXY :: V2 Double -> [m a] -> m a
+
+class MoveXZ a m where
+  moveXZ :: V2 Double -> [m a] -> m a
+
+class MoveYZ a m where
+  moveYZ :: V2 Double -> [m a] -> m a
+
+class MoveXYZ a m where
+  moveXYZ :: V3 Double -> [m a] -> m a
 
 -------------------------------------------------------------------------------
 -- Monad
@@ -259,7 +292,7 @@ resizeAuto2D = undefined
 
 
 -------------------------------------------------------------------------------
--- 2D / RotateEuler
+-- !! 2D / RotateEuler
 -------------------------------------------------------------------------------
 
 -- rotateX, rotateY, rotateXY
@@ -280,7 +313,66 @@ rotateAxisBy2D = undefined
 rotateAxis2D :: Degree -> V2 Double -> m Model2D
 rotateAxis2D = undefined
 
+-------------------------------------------------------------------------------
+-- ...
+-------------------------------------------------------------------------------
 
+-- moveXY :: MonadNeon m => V2 Double -> [m Model2D] -> m Model2D
+-- moveXY (x, y) modelsM = do
+--   models <- sequence modelsM
+--   pure $ Transform2D (Translate2D (x, y, 0)) models
+
+-- moveX :: MonadNeon m => Double -> [m Model2D] -> m Model2D
+-- moveX2D x mod = move2D (x, 0) mod
+
+-- moveY2D :: MonadNeon m => Double -> [m Model2D] -> m Model2D
+-- moveY2D y mod = move2D (0, y) mod
+
+-- instance MonadNeon m => MoveX Model2D m where
+--   moveX x modelsM = undefined --move2D (x, 0) modelsM
+
+-- instance MonadNeon m => Move (V2 Double) Model2D m where
+--   move v modelsM = undefined --move2D v modelsM
+
+-- instance MonadNeon m => MoveZ Model2D m where
+--   moveZ z modelsM = move2D (0, 0, z) modelsM
+
+instance MonadNeon m => MoveXYZ Model2D m where
+  moveXYZ v modelsM = do
+    models <- sequence modelsM
+    pure $ Transform2D (Translate2D v) models
+
+instance MonadNeon m => MoveXY Model2D m where
+  moveXY (x, y) modelsM = moveXYZ (x, y, 0) modelsM
+
+
+instance MonadNeon m => MoveXZ Model2D m where
+  moveXZ (x, z) modelsM = moveXYZ (x, 0, z) modelsM
+
+instance MonadNeon m => MoveYZ Model2D m where
+  moveYZ (y, z) modelsM = moveXYZ (0, y, z) modelsM
+
+instance MonadNeon m => MoveX Model2D m where
+  moveX x modelsM = moveXYZ (x, 0, 0) modelsM
+
+instance MonadNeon m => MoveY Model2D m where
+  moveY y modelsM = moveXYZ (0, y, 0) modelsM
+
+instance MonadNeon m => MoveZ Model2D m where
+  moveZ z modelsM = moveXYZ (0, 0, z) modelsM
+
+-------------------------------------------------------------------------------
+-- ...
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+-- 2D / Union
+-------------------------------------------------------------------------------
+
+union2D :: (MonadNeon m) => [m Model2D] -> m Model2D
+union2D modelsM = do
+  models <- sequence modelsM
+  pure $ Transform2D Union2D models
 
 -------------------------------------------------------------------------------
 -- 
