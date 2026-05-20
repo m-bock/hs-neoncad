@@ -10,6 +10,7 @@ module NeonCAD (
   rect, rectCenter,
   square, squareCenter,
   polygon,
+  text, defaultTextOpts, TextOpts, FontName, FontStyle,
   union,
   scaleXY, scaleX, scaleY, scaleXZ, scaleYZ, scaleXYZ,
   resizeXY, resizeX, resizeY,
@@ -31,8 +32,9 @@ module NeonCAD (
 import OpenSCAD.Model
   ( Model2D(..), Primitive2D(..), Transform2D(..)
   , Model3D(..), Primitive3D(..), Transform3D(..)
+  , Direction(..), HorizontalAlignment(..), VerticalAlignment(..)
   , V2, V3
-  , Facets(..)
+  , Facets(..), Font(..)
   , render2D, render3D
   )
 import Data.Functor.Identity (Identity (runIdentity))
@@ -44,17 +46,6 @@ import Data.Functor.Identity (Identity (runIdentity))
 data Radial = Radius Double | Diameter Double
 
 data ResizeOp = Auto | Keep | Set Double
-
-getValueAndAuto :: ResizeOp -> (Double, Bool)
-getValueAndAuto op = case op of
-  Auto -> (0, True)
-  Keep -> (0, False)
-  Set d -> (d, False)
-
-comment :: (MonadNeon m) => String -> m Model2D -> m Model2D
-comment text modelM = do
-  model <- modelM
-  pure $ Comment2D text model
 
 -------------------------------------------------------------------------------
 -- / Monad
@@ -104,15 +95,6 @@ defaultFacets = Facets
   , fa = Just 6
   , fs = Just 0.5
   }
-
--------------------------------------------------------------------------------
--- / Helpers
--------------------------------------------------------------------------------
-
-radialToDiameter :: Radial -> Double
-radialToDiameter (Radius r) = r * 2
-radialToDiameter (Diameter d) = d
-
 
 -------------------------------------------------------------------------------
 -- / Classes
@@ -242,6 +224,15 @@ class ColorA a m where
   colorA :: Double -> m a -> m a
 
 -------------------------------------------------------------------------------
+-- / 2D / Comment
+-------------------------------------------------------------------------------
+
+comment :: (MonadNeon m) => String -> m Model2D -> m Model2D
+comment text modelM = do
+  model <- modelM
+  pure $ Comment2D text model
+
+-------------------------------------------------------------------------------
 -- / 2D / Primitive / Circle
 -------------------------------------------------------------------------------
 
@@ -252,7 +243,10 @@ data Circle = Circle {
 instance MonadNeon m => ToModel2D Circle m where
     toModel2D (Circle {size}) = do
       facets <- askFacets
-      pure $ Primitive2D (Circle2D {d = radialToDiameter size, _facets = Just facets})
+      pure $ Primitive2D $ Circle2D
+        { circleDiameter = radialToDiameter size
+        , circleFacets   = Just facets
+        }
 
 defaultCircle :: Circle
 defaultCircle = Circle {
@@ -309,7 +303,10 @@ data Rect = Rect {
 
 instance MonadNeon m => ToModel2D Rect m where
   toModel2D (Rect {size, center}) = pure $
-    Primitive2D (Square2D {size = size, center = if center then Just True else Nothing})
+    Primitive2D $ Square2D
+      { squareSize   = size
+      , squareCenter = spareFlag center
+      }
 
 defaultRect :: Rect
 defaultRect = Rect {
@@ -334,7 +331,10 @@ data Square = Square {
 
 instance MonadNeon m => ToModel2D Square m where
   toModel2D (Square {size, center}) = pure $
-    Primitive2D (Square2D {size = (size, size), center = if center then Just True else Nothing})
+    Primitive2D $ Square2D
+      { squareSize   = (size, size)
+      , squareCenter = spareFlag center
+      }
 
 defaultSquare :: Square
 defaultSquare = Square {
@@ -371,10 +371,98 @@ defaultConvexity = 10
 
 instance MonadNeon m => ToModel2D Polygon m where
   toModel2D (Polygon {points, convexity}) = pure $
-    Primitive2D (Polygon2D {points = points, paths = Nothing, convexity = Just convexity})
+    Primitive2D $ Polygon2D
+      { polygonPoints    = points
+      , polygonPaths     = Nothing
+      , polygonConvexity = Just convexity
+      }
 
 polygon :: MonadNeon m => [V2 Double] -> m Model2D
 polygon points = toModel2D $ Polygon { points = points, convexity = defaultConvexity }
+
+
+-------------------------------------------------------------------------------
+-- / 2D / Primitive / Text
+-------------------------------------------------------------------------------
+
+data TextOpts = TextOpts {
+  textFont      :: FontName,
+  textSize      :: Double,
+  textStyle     :: FontStyle,
+  textDirection :: Direction,
+  textHAlign    :: HorizontalAlignment,
+  textVAlign    :: VerticalAlignment,
+  textSpacing   :: Double
+}
+
+defaultTextOpts :: TextOpts
+defaultTextOpts = TextOpts {
+  textFont      = FNLiberationSans,
+  textSize      = 10,
+  textStyle     = FSRegular,
+  textDirection = LeftToRight,
+  textHAlign    = HALeft,
+  textVAlign    = VABaseline,
+  textSpacing   = 1
+}
+
+data FontName
+  = FNLiberationMono
+  | FNLiberationSans
+  | FNLiberationSerif
+  | FNCustom String
+  deriving (Eq)
+
+fontNameToString :: FontName -> String
+fontNameToString = \case
+  FNLiberationMono -> "Liberation Mono"
+  FNLiberationSans -> "Liberation Sans"
+  FNLiberationSerif -> "Liberation Serif"
+  FNCustom s -> s
+
+data FontStyle
+  = FSRegular
+  | FSBold
+  | FSItalic
+  | FSBoldItalic
+  deriving (Eq)
+
+fontStyleToString :: FontStyle -> String
+fontStyleToString = \case
+  FSRegular    -> "Regular"
+  FSBold       -> "Bold"
+  FSItalic     -> "Italic"
+  FSBoldItalic -> "Bold Italic"
+
+mkFont :: Maybe FontName -> Maybe FontStyle -> Maybe Font
+mkFont fontName style = case (fontName, style) of
+  (Nothing, Nothing) -> Nothing
+  (Just fontName, mayStyle) -> Just $ Font
+    { fontFamily = fontNameToString fontName
+    , fontOptions = case mayStyle of
+      Just style -> [("style", fontStyleToString style)]
+      Nothing -> []
+    }
+  (Nothing, mayStyle) -> mkFont (Just FNLiberationSans) mayStyle
+
+text :: MonadNeon m => String -> TextOpts -> m Model2D
+text txt opts = do
+  facets <- askFacets
+  pure $ Primitive2D $ Text2D
+    { textText      = txt
+    , textSize      = spareOpt opts.textSize defaultTextOpts.textSize
+    , textFont      = mkFont
+       (spareOpt opts.textFont defaultTextOpts.textFont)
+       (spareOpt opts.textStyle defaultTextOpts.textStyle)
+    , textDirection = spareOpt opts.textDirection defaultTextOpts.textDirection
+    , textLanguage  = Nothing
+    , textScript    = Nothing
+    , textHAlign    = spareOpt opts.textHAlign defaultTextOpts.textHAlign
+    , textVAlign    = spareOpt opts.textVAlign defaultTextOpts.textVAlign
+    , textSpacing   = spareOpt opts.textSpacing defaultTextOpts.textSpacing
+    , textEm        = Nothing
+    , textFacets    = Just facets
+    }
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Scale
@@ -383,7 +471,7 @@ polygon points = toModel2D $ Polygon { points = points, convexity = defaultConve
 instance MonadNeon m => ScaleXY Model2D m where
   scaleXY (x, y) modelM = do
     model <- modelM
-    pure $ Transform2D (Scale2D {v2 = (x, y)}) [model]
+    pure $ Transform2D Scale2D {scaleVector = (x, y)} [model]
 
 instance MonadNeon m => ScaleX Model2D m where
   scaleX x modelM = scaleXY (x, 1) modelM
@@ -400,10 +488,15 @@ resize2D (x, y) modelM = do
   model <- modelM
   let (valX, autoX) = getValueAndAuto x
       (valY, autoY) = getValueAndAuto y
-      auto = case (autoX, autoY) of
-             (False, False) -> Nothing
-             _ -> Just (autoX, autoY)
-  pure $ Transform2D (Resize2D {newSize = (valX, valY), auto = auto}) [model]
+      auto =
+        case (autoX, autoY) of
+          (False, False) -> Nothing
+          _ -> Just (autoX, autoY)
+  pure $ Transform2D Resize2D
+    { resizeNewSize = (valX, valY)
+    , resizeAuto = auto
+    }
+    [model]
 
 instance MonadNeon m => ResizeXY Model2D m where
   resizeXY (x, y) modelM = resize2D (Set x, Set y) modelM
@@ -427,7 +520,11 @@ instance MonadNeon m => ResizeAutoY Model2D m where
 instance MonadNeon m => RotateZ Model2D m where
   rotateZ angle modelM = do
     model <- modelM
-    pure $ Transform2D (RotateAxis2D {a = angle, mv2 = Nothing}) [model]
+    pure $ Transform2D RotateAxis2D
+      { rotateAxisAngle  = angle
+      , rotateAxisVector = Nothing
+      }
+      [model]
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Move
@@ -463,7 +560,7 @@ instance MonadNeon m => MoveZ Model2D m where
 instance MonadNeon m => MirrorXY Model2D m where
   mirrorXY (x, y) modelM = do
     model <- modelM
-    pure $ Transform2D (Mirror2D {v2 = (x, y)}) [model]
+    pure $ Transform2D Mirror2D {mirrorVector = (x, y)} [model]
 
 instance MonadNeon m => MirrorX Model2D m where
   mirrorX modelM = mirrorXY (1, 0) modelM
@@ -478,7 +575,11 @@ instance MonadNeon m => MirrorY Model2D m where
 instance MonadNeon m => Color Model2D m where
   color c a modelM = do
     model <- modelM
-    pure $ Transform2D (Color2D {c = c, alpha = a}) [model]
+    pure $ Transform2D Color2D 
+      { colorColor = c
+      , colorAlpha = a
+      }
+      [model]
 
 instance MonadNeon m => ColorRGB Model2D m where
   colorRGB c modelM = color (Just c) Nothing modelM
@@ -635,7 +736,11 @@ resize3D (x, y, z) modelM = do
   let (valX, autoX) = getValueAndAuto x
       (valY, autoY) = getValueAndAuto y
       (valZ, autoZ) = getValueAndAuto z
-  pure $ Transform3D (Resize3D {newSize = (valX, valY, valZ), auto = Just (autoX, autoY, autoZ)}) [model] 
+  pure $ Transform3D Resize3D
+    { resizeNewSize = (valX, valY, valZ)
+    , resizeAuto = Just (autoX, autoY, autoZ)
+    }
+    [model]
 
 instance MonadNeon m => ResizeXYZ Model3D m where
   resizeXYZ (x, y, z) modelM = resize3D (Set x, Set y, Set z) modelM
@@ -697,3 +802,25 @@ instance MonadNeon m => ResizeXYZ Model3D m where
 -------------------------------------------------------------------------------
 -- / 3D / Projection
 -------------------------------------------------------------------------------
+
+-- TODO: Implement
+
+-------------------------------------------------------------------------------
+-- / Helpers
+-------------------------------------------------------------------------------
+
+radialToDiameter :: Radial -> Double
+radialToDiameter (Radius r)   = r * 2
+radialToDiameter (Diameter d) = d
+
+getValueAndAuto :: ResizeOp -> (Double, Bool)
+getValueAndAuto op = case op of
+  Auto  -> (0, True)
+  Keep  -> (0, False)
+  Set d -> (d, False)
+
+spareOpt :: Eq a => a -> a -> Maybe a
+spareOpt x y = if x == y then Nothing else Just x
+
+spareFlag :: Bool -> Maybe Bool
+spareFlag b = spareOpt b False

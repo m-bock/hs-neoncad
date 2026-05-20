@@ -22,6 +22,7 @@ common extensions
     MultiParamTypeClasses
     NamedFieldPuns
     NoFieldSelectors
+    OverloadedRecordDot
 
   default-language: Haskell2010
 
