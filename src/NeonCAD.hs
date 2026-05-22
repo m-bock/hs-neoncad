@@ -5,12 +5,21 @@
 module NeonCAD (
   comment,
   render2D, render3D,
+
+  -- 2D / Primitive
   circleR, circleD,
   ellipseR, ellipseD,
   rect, rectCenter,
   square, squareCenter,
   polygon,
   text, defaultTextOpts, TextOpts, FontName, FontStyle,
+  
+
+  -- 3D / Primitive
+  box, boxCenter,
+  cube, cubeCenter,
+
+  -- Transform
   union, intersection, difference,
   scaleXY, scaleX, scaleY, scaleXZ, scaleYZ, scaleXYZ,
   resizeXY, resizeX, resizeY,
@@ -19,7 +28,12 @@ module NeonCAD (
   mirrorXY, mirrorX, mirrorY,
   colorRGB, colorRGBA, color,
   hull,
+  extrudeLinear,
+  
+  -- Modifiers
   modDisable, modShowOnly, modHighlight, modTransparent,
+  
+
   runNeonM, runNeonT,
   fn, fa, fs, defaultFacets,
   askFacets, localFacets,
@@ -36,6 +50,7 @@ import OpenSCAD.Model
   , Model3D(..), Primitive3D(..), Transform3D(..)
   , Direction(..), HorizontalAlignment(..), VerticalAlignment(..)
   , Modifier(..)
+  , Extrude3D(..)
   , V2, V3
   , Facets(..), Font(..)
   , render2D, render3D
@@ -249,7 +264,7 @@ class Intersection a m where
 -------------------------------------------------------------------------------
 
 class Difference a m where
-  difference :: m a -> [ m a ] -> m a
+  difference :: m a -> m a -> m a
 
 -------------------------------------------------------------------------------
 -- / Classes / Modifiers
@@ -688,23 +703,10 @@ instance MonadNeon m => Intersection Model2D m where
 -------------------------------------------------------------------------------
 
 instance MonadNeon m => Difference Model2D m where
-  difference modelM modelsM = do
-    model <- modelM
-    models <- sequence modelsM
-    pure $ Transform2D Difference2D ([model] <> models)
-
--------------------------------------------------------------------------------
--- / 2D / Transform / Projection
--------------------------------------------------------------------------------
-
--- TODO: Implement
-
-
--------------------------------------------------------------------------------
--- / 2D / Extrude / Linear
--------------------------------------------------------------------------------
-
--- TODO: Implement
+  difference modelAM modelBM = do
+    modelA <- modelAM
+    modelB <- modelBM
+    pure $ Transform2D Difference2D [modelA, modelB]
 
 -------------------------------------------------------------------------------
 -- / 2D / Extrude / Rotational
@@ -713,16 +715,57 @@ instance MonadNeon m => Difference Model2D m where
 -- TODO: Implement
 
 -------------------------------------------------------------------------------
--- / 3D / Primitive / Box
+-- / 3D / Comment
 -------------------------------------------------------------------------------
 
 -- TODO: Implement
+
+-------------------------------------------------------------------------------
+-- / 3D / Modifiers
+-------------------------------------------------------------------------------
+
+instance MonadNeon m => Modifiers Model3D m where
+  modDisable modelM = do
+    model <- modelM
+    pure $ Modifier3D ModDisable model
+  modShowOnly modelM = do
+    model <- modelM
+    pure $ Modifier3D ModShowOnly model
+  modHighlight modelM = do
+    model <- modelM
+    pure $ Modifier3D ModHighlight model
+
+-------------------------------------------------------------------------------
+-- / 3D / Primitive / Box
+-------------------------------------------------------------------------------
+
+box :: MonadNeon m => V3 Double -> m Model3D
+box size = pure $ Primitive3D $ Cube3D
+  { cubeSize = size
+  , cubeCenter = Nothing
+  }
+
+boxCenter :: MonadNeon m => V3 Double -> m Model3D
+boxCenter size = pure $ Primitive3D $ Cube3D
+  { cubeSize = size
+  , cubeCenter = Just True
+  }
 
 -------------------------------------------------------------------------------
 -- / 3D / Primitive / Cube
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+cube :: MonadNeon m => Double -> m Model3D
+cube size = pure $ Primitive3D $ Cube3D
+  { cubeSize = (size, size, size)
+  , cubeCenter = Nothing
+  }
+
+cubeCenter :: MonadNeon m => Double -> m Model3D
+cubeCenter size = pure $ Primitive3D $ Cube3D
+  { cubeSize = (size, size, size)
+  , cubeCenter = Just True
+  }
 
 -------------------------------------------------------------------------------
 -- / 3D / Primitive / Cone
@@ -810,7 +853,28 @@ instance MonadNeon m => ResizeXYZ Model3D m where
 -- / 3D / Transform / Move
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+instance MonadNeon m => MoveXYZ Model3D m where
+  moveXYZ v modelM = do
+    model <- modelM
+    pure $ Transform3D (Translate3D v) [model]
+
+instance MonadNeon m => MoveXY Model3D m where
+  moveXY (x, y) modelsM = moveXYZ (x, y, 0) modelsM
+
+instance MonadNeon m => MoveXZ Model3D m where
+  moveXZ (x, z) modelsM = moveXYZ (x, 0, z) modelsM
+
+instance MonadNeon m => MoveYZ Model3D m where
+  moveYZ (y, z) modelsM = moveXYZ (0, y, z) modelsM
+
+instance MonadNeon m => MoveX Model3D m where
+  moveX x modelsM = moveXYZ (x, 0, 0) modelsM
+
+instance MonadNeon m => MoveY Model3D m where
+  moveY y modelsM = moveXYZ (0, y, 0) modelsM
+
+instance MonadNeon m => MoveZ Model3D m where
+  moveZ z modelsM = moveXYZ (0, 0, z) modelsM
 
 -------------------------------------------------------------------------------
 -- / 3D / Transform / Mirror
@@ -828,7 +892,10 @@ instance MonadNeon m => ResizeXYZ Model3D m where
 -- / 3D / Transform / Union
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+instance MonadNeon m => Union Model3D m where
+  union modelsM = do
+    models <- sequence modelsM
+    pure $ Transform3D Union3D models
 
 -------------------------------------------------------------------------------
 -- / 3D / Transform / Intersection
@@ -849,10 +916,62 @@ instance MonadNeon m => ResizeXYZ Model3D m where
 -- TODO: Implement
 
 -------------------------------------------------------------------------------
--- / 3D / Projection
+-- / 2D-3D Conversion
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+extrudeLinear :: (MonadNeon m) => Double -> m Model2D -> m Model3D
+extrudeLinear height = extrudeLineaWith height noScale noTwist
+
+
+extrudeLineaWith :: (MonadNeon m) => Double -> Scale -> Twist -> m Model2D -> m Model3D
+extrudeLineaWith height scale twist modelM = do
+  model <- modelM
+  facets <- askFacets
+  pure $ Extrude3D (LinearExtrude
+    { linearHeight    = height
+    , linearCenter    = Nothing
+    , linearTwist     = case twist of
+        NoTwist -> Nothing
+        Twist a _ -> Just a
+    , linearScale     = case scale of
+        NoScale -> Nothing
+        Scale s -> Just s
+    , linearSlices    = case twist of
+        Twist _ (Just s) -> Just s
+        _ -> Nothing
+    , linearConvexity = Just defaultConvexity
+    , linearFacets    = Just facets
+  }) [model]
+
+data Scale = NoScale | Scale Double
+
+noScale :: Scale
+noScale = NoScale
+
+scale :: Double -> Scale
+scale s = Scale s
+
+noTwist :: Twist
+noTwist = NoTwist
+
+twist :: Double -> Twist
+twist t = Twist t Nothing
+
+twistWithSlices :: Double -> Int -> Twist
+twistWithSlices a s = Twist a (Just s)
+
+data Twist = NoTwist | Twist {
+  angle :: Double,
+  slices :: Maybe Int
+}
+
+----
+
+extrudeRotational :: (MonadNeon m) => Double -> m Model2D -> m Model3D
+extrudeRotational = undefined
+
+project :: (MonadNeon m) => m Model3D -> m Model2D
+project = undefined
 
 -------------------------------------------------------------------------------
 -- / Helpers
