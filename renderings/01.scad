@@ -167,9 +167,23 @@ union(){
               union()
                 translate(v=[0, 0, 0])
                   hull(){
+                    #
                     translate(v=[50, 50, 0])
                       square(size=[50, 50], center=true);
+                    #
                     circle(d=50, $fa=6, $fs=0.5);
+                  }
+      union()
+        translate(v=[0, 2400, 0])
+          union()
+            translate(v=[100, 0, 0])
+              union()
+                translate(v=[0, 0, 0])
+                  difference(){
+                    translate(v=[50, 50, 0])
+                      square(size=[50, 50], center=true);
+                    %
+                    circle(d=100, $fa=6, $fs=0.5);
                   }
     }
   // Grid

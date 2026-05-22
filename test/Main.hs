@@ -129,8 +129,14 @@ drawSamples =
     , -- TODO: offset examples
       spreadX
         [ hull
-            [ moveXY (50, 50) $ squareCenter 50
-            , circleD 50
+            [ modHighlight $ moveXY (50, 50) $ squareCenter 50
+            , modHighlight $ circleD 50
+            ]
+        ]
+    , spreadX
+        [ difference
+            (id $ moveXY (50, 50) $ squareCenter 50)
+            [ modTransparent $ circleD 100
             ]
         ]
     ]

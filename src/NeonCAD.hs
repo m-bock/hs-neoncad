@@ -11,7 +11,7 @@ module NeonCAD (
   square, squareCenter,
   polygon,
   text, defaultTextOpts, TextOpts, FontName, FontStyle,
-  union,
+  union, intersection, difference,
   scaleXY, scaleX, scaleY, scaleXZ, scaleYZ, scaleXYZ,
   resizeXY, resizeX, resizeY,
   moveXYZ, moveXY, moveXZ, moveYZ, moveX, moveY, moveZ,
@@ -19,6 +19,7 @@ module NeonCAD (
   mirrorXY, mirrorX, mirrorY,
   colorRGB, colorRGBA, color,
   hull,
+  modDisable, modShowOnly, modHighlight, modTransparent,
   runNeonM, runNeonT,
   fn, fa, fs, defaultFacets,
   askFacets, localFacets,
@@ -34,6 +35,7 @@ import OpenSCAD.Model
   ( Model2D(..), Primitive2D(..), Transform2D(..)
   , Model3D(..), Primitive3D(..), Transform3D(..)
   , Direction(..), HorizontalAlignment(..), VerticalAlignment(..)
+  , Modifier(..)
   , V2, V3
   , Facets(..), Font(..)
   , render2D, render3D
@@ -239,13 +241,25 @@ class Union a m where
 -- / Classes / Intersection
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+class Intersection a m where
+  intersection :: [m a] -> m a
 
 -------------------------------------------------------------------------------
 -- / Classes / Difference
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+class Difference a m where
+  difference :: m a -> [ m a ] -> m a
+
+-------------------------------------------------------------------------------
+-- / Classes / Modifiers
+-------------------------------------------------------------------------------
+
+class Modifiers a m where
+  modDisable :: m a -> m a
+  modShowOnly :: m a -> m a
+  modHighlight :: m a -> m a
+  modTransparent :: m a -> m a
 
 -------------------------------------------------------------------------------
 -- / 2D / Comment
@@ -255,6 +269,24 @@ comment :: (MonadNeon m) => String -> m Model2D -> m Model2D
 comment text modelM = do
   model <- modelM
   pure $ Comment2D text model
+
+-------------------------------------------------------------------------------
+-- / 2D / Modifiers
+-------------------------------------------------------------------------------
+
+instance MonadNeon m => Modifiers Model2D m where
+  modDisable modelM = do
+    model <- modelM
+    pure $ Modifier2D ModDisable model
+  modShowOnly modelM = do
+    model <- modelM
+    pure $ Modifier2D ModShowOnly model
+  modHighlight modelM = do
+    model <- modelM
+    pure $ Modifier2D ModHighlight model
+  modTransparent modelM = do
+    model <- modelM
+    pure $ Modifier2D ModTransparent model
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Circle
@@ -612,7 +644,7 @@ instance MonadNeon m => ColorRGBA Model2D m where
   colorRGBA c a modelM = color c (Just a) modelM
 
 -------------------------------------------------------------------------------
--- / 2D / Transform / Union
+-- / 2D / Transform / Offset
 -------------------------------------------------------------------------------
 
 offset :: (MonadNeon m) => Double -> m Model2D -> m Model2D
@@ -637,19 +669,29 @@ instance MonadNeon m => Hull Model2D m where
 -- / 2D / Transform / Union
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+instance MonadNeon m => Union Model2D m where
+  union modelsM = do
+    models <- sequence modelsM
+    pure $ Transform2D Union2D models
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Intersection
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+instance MonadNeon m => Intersection Model2D m where
+  intersection modelsM = do
+    models <- sequence modelsM
+    pure $ Transform2D Intersection2D models
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Difference
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+instance MonadNeon m => Difference Model2D m where
+  difference modelM modelsM = do
+    model <- modelM
+    models <- sequence modelsM
+    pure $ Transform2D Difference2D ([model] <> models)
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Projection
@@ -657,14 +699,6 @@ instance MonadNeon m => Hull Model2D m where
 
 -- TODO: Implement
 
--------------------------------------------------------------------------------
--- / 2D / Transform / Union
--------------------------------------------------------------------------------
-
-instance MonadNeon m => Union Model2D m where
-  union modelsM = do
-    models <- sequence modelsM
-    pure $ Transform2D Union2D models
 
 -------------------------------------------------------------------------------
 -- / 2D / Extrude / Linear
