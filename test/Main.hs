@@ -4,49 +4,50 @@ import NeonCAD
 
 spreadX :: (MonadNeon m) => [m Model2D] -> m Model2D
 spreadX modelsM =
-  union $
-    zipWith
-      ( \i x ->
-          moveX (fromIntegral i * 200) x
-      )
-      [0 ..]
-      modelsM
+  moveX 100 $
+    union $
+      zipWith
+        ( \i x ->
+            moveX (fromIntegral i * 200) x
+        )
+        [0 ..]
+        modelsM
 
 spreadY :: (MonadNeon m) => [m Model2D] -> m Model2D
 spreadY modelsM =
-  union $
-    zipWith
-      ( \i x ->
-          union
-            [ moveY (-fromIntegral i * 200) $
-                union
-                  [ x
-                  ]
-            ]
-      )
-      [0 ..]
-      modelsM
+  moveY 100 $
+    union $
+      zipWith
+        ( \i x ->
+            union
+              [ moveY (fromIntegral i * 200) $
+                  union
+                    [ x
+                    ]
+              ]
+        )
+        [0 ..]
+        modelsM
 
 drawGrid :: (MonadNeon m) => m Model2D
 drawGrid =
   comment "Grid" $
-    -- moveXY (-100, 100) $
-    colorA 0.8 $
+    moveXY (100, 100) $
       union $
         map
           ( \x ->
               comment ("X: " ++ show x) $
                 union $
-                  map (\y -> comment ("Y: " ++ show y) $ drawGridItem x y) [0 .. 10]
+                  map (\y -> comment ("Y: " ++ show y) $ drawGridItem x y) [0 .. 20]
           )
           [0 .. 10]
 
 drawGridItem :: (MonadNeon m) => Int -> Int -> m Model2D
 drawGridItem x_ y_ =
-  moveXY (x * 200, -y * 200) $
+  moveXY (x * 200, y * 200) $
     union
-      [ moveZ (-5) $ colorRGB (0.5, 0.5, 0.5) $ rectCenter (190, 190)
-      , moveZ (-4) $ colorRGB (1, 0, 0) $ union [rectCenter (1, 190), rectCenter (190, 1)]
+      [ moveZ (-5) $ colorRGB (1, 1, 1) $ rectCenter (190, 190)
+      , moveZ (-4) $ colorRGBA (1, 0, 0) 0.5 $ union [rectCenter (1, 190), rectCenter (190, 1)]
       ]
  where
   x = fromIntegral x_
@@ -115,7 +116,7 @@ drawSamples =
         [ rect (50, 30)
         , colorRGB (1, 0, 0) $ rect (50, 30)
         , colorRGBA (1, 0, 0) 0.5 $ rect (50, 30)
-        , colorA 0.5 $ rect (50, 30)
+        , color (1, 0, 0) (Just 0.5) $ rect (50, 30)
         ]
     , -- Text
       spreadX
@@ -124,6 +125,13 @@ drawSamples =
         -- , text "Hello, World!" (defaultTextOpts { textFont = FNLiberationSans })
         -- , text "Hello, World!" (defaultTextOpts { textFont = FNLiberationSerif })
         -- , text "Hello, World!" (defaultTextOpts { textFont = FNCustom "Arial" })
+        ]
+    , -- TODO: offset examples
+      spreadX
+        [ hull
+            [ moveXY (50, 50) $ squareCenter 50
+            , circleD 50
+            ]
         ]
     ]
 

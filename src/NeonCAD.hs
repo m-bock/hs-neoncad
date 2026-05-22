@@ -17,7 +17,8 @@ module NeonCAD (
   moveXYZ, moveXY, moveXZ, moveYZ, moveX, moveY, moveZ,
   rotateZ,
   mirrorXY, mirrorX, mirrorY,
-  colorRGB, colorRGBA, colorA,
+  colorRGB, colorRGBA, color,
+  hull,
   runNeonM, runNeonT,
   fn, fa, fs, defaultFacets,
   askFacets, localFacets,
@@ -212,7 +213,7 @@ class MirrorY a m where
 -------------------------------------------------------------------------------
 
 class Color a m where
-  color :: Maybe (V3 Double) -> Maybe Double -> m a -> m a
+  color :: V3 Double -> Maybe Double -> m a -> m a
 
 class ColorRGB a m where
   colorRGB :: V3 Double -> m a -> m a
@@ -220,8 +221,31 @@ class ColorRGB a m where
 class ColorRGBA a m where
   colorRGBA :: V3 Double -> Double -> m a -> m a
 
-class ColorA a m where
-  colorA :: Double -> m a -> m a
+-------------------------------------------------------------------------------
+-- / Classes / Hull
+-------------------------------------------------------------------------------
+
+class Hull a m where
+  hull :: [m a] -> m a
+
+-------------------------------------------------------------------------------
+-- / Classes / Union
+-------------------------------------------------------------------------------
+
+class Union a m where
+  union :: [m a] -> m a
+
+-------------------------------------------------------------------------------
+-- / Classes / Intersection
+-------------------------------------------------------------------------------
+
+-- TODO: Implement
+
+-------------------------------------------------------------------------------
+-- / Classes / Difference
+-------------------------------------------------------------------------------
+
+-- TODO: Implement
 
 -------------------------------------------------------------------------------
 -- / 2D / Comment
@@ -582,13 +606,10 @@ instance MonadNeon m => Color Model2D m where
       [model]
 
 instance MonadNeon m => ColorRGB Model2D m where
-  colorRGB c modelM = color (Just c) Nothing modelM
+  colorRGB c modelM = color c Nothing modelM
 
 instance MonadNeon m => ColorRGBA Model2D m where
-  colorRGBA c a modelM = color (Just c) (Just a) modelM
-
-instance MonadNeon m => ColorA Model2D m where
-  colorA a modelM = color Nothing (Just a) modelM
+  colorRGBA c a modelM = color c (Just a) modelM
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Union
@@ -607,7 +628,10 @@ offsetCut = undefined
 -- / 2D / Transform / Hull
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+instance MonadNeon m => Hull Model2D m where
+  hull modelsM = do
+    models <- sequence modelsM
+    pure $ Transform2D Hull2D models
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Union
@@ -636,9 +660,6 @@ offsetCut = undefined
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Union
 -------------------------------------------------------------------------------
-
-class Union a m where
-  union :: [m a] -> m a
 
 instance MonadNeon m => Union Model2D m where
   union modelsM = do
@@ -786,12 +807,6 @@ instance MonadNeon m => ResizeXYZ Model3D m where
 -------------------------------------------------------------------------------
 
 -- TODO: Implement
-
--------------------------------------------------------------------------------
--- /3D / Transform / Minkowski
--------------------------------------------------------------------------------
-
--- TODO
 
 -------------------------------------------------------------------------------
 -- / 3D / Transform / Hull
