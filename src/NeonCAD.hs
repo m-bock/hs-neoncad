@@ -51,15 +51,16 @@ module NeonCAD (
 -- / Imports
 -------------------------------------------------------------------------------
 
-import OpenSCAD.Model
+import qualified OpenSCAD as OpenSCAD
+import OpenSCAD
   ( Model2D(..), Primitive2D(..), Transform2D(..)
   , Model3D(..), Primitive3D(..), Transform3D(..)
   , Direction(..), HorizontalAlignment(..), VerticalAlignment(..)
   , Modifier(..)
   , Extrude3D(..)
+  , BoolOp2D(..), BoolOp3D(..)
   , V2, V3
   , Facets(..), Font(..)
-  , render2D, render3D
   )
 import Data.Functor.Identity (Identity (runIdentity))
 
@@ -278,10 +279,10 @@ class Empty a m where
   empty :: m a
 
 instance MonadNeon m => Empty Model2D m where
-  empty = pure $ Transform2D Union2D []
+  empty = pure $ BoolOp2D Union2D []
 
 instance MonadNeon m => Empty Model3D m where
-  empty = pure $ Transform3D Union3D []
+  empty = pure $ BoolOp3D Union3D []
 
 many :: (MonadNeon m, Empty a m) => (m a -> m a -> m a) -> [m a] -> m a
 many f modelsM = foldr f empty modelsM
@@ -721,7 +722,7 @@ instance MonadNeon m => Union Model2D m where
   union modelAM modelBM = do
     modelA <- modelAM
     modelB <- modelBM
-    pure $ Transform2D Union2D [modelA, modelB]
+    pure $ BoolOp2D Union2D [modelA, modelB]
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Intersection
@@ -731,7 +732,7 @@ instance MonadNeon m => Intersection Model2D m where
   intersection modelAM modelBM = do
     modelA <- modelAM
     modelB <- modelBM
-    pure $ Transform2D Intersection2D [modelA, modelB]
+    pure $ BoolOp2D Intersection2D [modelA, modelB]
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Difference
@@ -741,7 +742,7 @@ instance MonadNeon m => Difference Model2D m where
   difference modelAM modelBM = do
     modelA <- modelAM
     modelB <- modelBM
-    pure $ Transform2D Difference2D [modelA, modelB]
+    pure $ BoolOp2D Difference2D [modelA, modelB]
 
 -------------------------------------------------------------------------------
 -- / 2D / Extrude / Rotational
@@ -961,7 +962,7 @@ instance MonadNeon m => Union Model3D m where
   union modelAM modelBM = do
     modelA <- modelAM
     modelB <- modelBM
-    pure $ Transform3D Union3D [modelA, modelB]
+    pure $ BoolOp3D Union3D [modelA, modelB]
 
 -------------------------------------------------------------------------------
 -- / 3D / Transform / Intersection
@@ -977,7 +978,7 @@ instance MonadNeon m => Difference Model3D m where
   difference modelAM modelBM = do
     modelA <- modelAM
     modelB <- modelBM
-    pure $ Transform3D Difference3D [modelA, modelB]
+    pure $ BoolOp3D Difference3D [modelA, modelB]
 
 -------------------------------------------------------------------------------
 -- / 3D / Transform / Hull
@@ -1062,3 +1063,14 @@ spareOpt x y = if x == y then Nothing else Just x
 
 spareFlag :: Bool -> Maybe Bool
 spareFlag b = spareOpt b False
+
+
+-------------------------------------------------------------------------------
+-- / Rendering
+-------------------------------------------------------------------------------
+
+render2D :: Model2D -> String
+render2D model = OpenSCAD.render2D model
+
+render3D :: Model3D -> String
+render3D model = OpenSCAD.render3D model

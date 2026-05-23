@@ -29,6 +29,7 @@ common extensions
 library
   import: warnings, extensions
   exposed-modules: NeonCAD
+  other-modules: Optimizer
   build-depends:
     base ^>=4.17.2.1,
     openscad,
