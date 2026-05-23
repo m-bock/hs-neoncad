@@ -19,12 +19,15 @@ module NeonCAD (
   box, boxCenter,
   cube, cubeCenter,
 
+  empty,
+  many,
+
   -- Transform
   union, intersection, difference,
   scaleXY, scaleX, scaleY, scaleXZ, scaleYZ, scaleXYZ,
   resizeXY, resizeX, resizeY,
   moveXYZ, moveXY, moveXZ, moveYZ, moveX, moveY, moveZ,
-  rotateZ,
+  spinXY, spinXZ, spinYZ, spinX, spinY, spinZ, spinXYZ,
   mirrorXY, mirrorX, mirrorY,
   colorRGB, colorRGBA, color,
   hull,
@@ -198,17 +201,29 @@ class ResizeAutoY a m where
   resizeAutoY :: Double -> m a -> m a
 
 -------------------------------------------------------------------------------
--- / Classes / Rotate
+-- / Classes / Spin
 -------------------------------------------------------------------------------
 
-class RotateX a m where
-  rotateX :: Double -> m a -> m a
+class SpinXYZ a m where
+  spinXYZ :: V3 Double -> m a -> m a
 
-class RotateY a m where
-  rotateY :: Double -> m a -> m a
+class SpinXY a m where
+  spinXY :: V2 Double -> m a -> m a
 
-class RotateZ a m where
-  rotateZ :: Double -> m a -> m a
+class SpinXZ a m where
+  spinXZ :: V2 Double -> m a -> m a
+
+class SpinYZ a m where
+  spinYZ :: V2 Double -> m a -> m a
+
+class SpinX a m where
+  spinX :: Double -> m a -> m a
+
+class SpinY a m where
+  spinY :: Double -> m a -> m a
+
+class SpinZ a m where
+  spinZ :: Double -> m a -> m a
 
 -- TODO
 
@@ -243,21 +258,37 @@ class ColorRGBA a m where
 -------------------------------------------------------------------------------
 
 class Hull a m where
-  hull :: [m a] -> m a
+  hull :: m a -> m a
 
 -------------------------------------------------------------------------------
 -- / Classes / Union
 -------------------------------------------------------------------------------
 
 class Union a m where
-  union :: [m a] -> m a
+  union :: m a -> m a -> m a
+
+-------------------------------------------------------------------------------
+-- / Classes / Empty
+-------------------------------------------------------------------------------
+
+class Empty a m where
+  empty :: m a
+
+instance MonadNeon m => Empty Model2D m where
+  empty = pure $ Transform2D Union2D []
+
+instance MonadNeon m => Empty Model3D m where
+  empty = pure $ Transform3D Union3D []
+
+many :: (MonadNeon m, Empty a m) => (m a -> m a -> m a) -> [m a] -> m a
+many f modelsM = foldr f empty modelsM
 
 -------------------------------------------------------------------------------
 -- / Classes / Intersection
 -------------------------------------------------------------------------------
 
 class Intersection a m where
-  intersection :: [m a] -> m a
+  intersection :: m a -> m a -> m a
 
 -------------------------------------------------------------------------------
 -- / Classes / Difference
@@ -585,17 +616,22 @@ instance MonadNeon m => ResizeAutoY Model2D m where
   resizeAutoY val modelM = resize2D (Auto, Set val) modelM
 
 -------------------------------------------------------------------------------
--- / 2D / Transform / Rotate
+-- / 2D / Transform / Spin
 -------------------------------------------------------------------------------
 
-instance MonadNeon m => RotateZ Model2D m where
-  rotateZ angle modelM = do
+instance MonadNeon m => SpinXY Model2D m where
+  spinXY (x, y) modelM = do
     model <- modelM
-    pure $ Transform2D RotateAxis2D
-      { rotateAxisAngle  = angle
-      , rotateAxisVector = Nothing
+    pure $ Transform2D RotateEuler2D
+      { rotateEulerVector  = (x, y)
       }
       [model]
+
+instance MonadNeon m => SpinX Model2D m where
+  spinX angle modelM = spinXY (angle, 0) modelM
+
+instance MonadNeon m => SpinY Model2D m where
+  spinY angle modelM = spinXY (0, angle) modelM
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Move
@@ -676,27 +712,29 @@ offsetCut = undefined
 -------------------------------------------------------------------------------
 
 instance MonadNeon m => Hull Model2D m where
-  hull modelsM = do
-    models <- sequence modelsM
-    pure $ Transform2D Hull2D models
+  hull modelM = do
+    model <- modelM
+    pure $ Transform2D Hull2D [model]
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Union
 -------------------------------------------------------------------------------
 
 instance MonadNeon m => Union Model2D m where
-  union modelsM = do
-    models <- sequence modelsM
-    pure $ Transform2D Union2D models
+  union modelAM modelBM = do
+    modelA <- modelAM
+    modelB <- modelBM
+    pure $ Transform2D Union2D [modelA, modelB]
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Intersection
 -------------------------------------------------------------------------------
 
 instance MonadNeon m => Intersection Model2D m where
-  intersection modelsM = do
-    models <- sequence modelsM
-    pure $ Transform2D Intersection2D models
+  intersection modelAM modelBM = do
+    modelA <- modelAM
+    modelB <- modelBM
+    pure $ Transform2D Intersection2D [modelA, modelB]
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Difference
@@ -844,10 +882,31 @@ instance MonadNeon m => ResizeXYZ Model3D m where
   resizeXYZ (x, y, z) modelM = resize3D (Set x, Set y, Set z) modelM
 
 -------------------------------------------------------------------------------
--- / 3D / Transform / Rotate
+-- / 3D / Transform / Spin
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+instance MonadNeon m => SpinXYZ Model3D m where
+  spinXYZ (x, y, z) modelM = do
+    model <- modelM
+    pure $ Transform3D (RotateEuler3D (x, y, z)) [model]
+
+instance MonadNeon m => SpinXY Model3D m where
+  spinXY (x, y) modelM = spinXYZ (x, y, 0) modelM
+
+instance MonadNeon m => SpinXZ Model3D m where
+  spinXZ (x, z) modelM = spinXYZ (x, 0, z) modelM
+
+instance MonadNeon m => SpinYZ Model3D m where
+  spinYZ (y, z) modelM = spinXYZ (0, y, z) modelM
+
+instance MonadNeon m => SpinX Model3D m where
+  spinX x modelM = spinXYZ (x, 0, 0) modelM
+
+instance MonadNeon m => SpinY Model3D m where
+  spinY y modelM = spinXYZ (0, y, 0) modelM
+
+instance MonadNeon m => SpinZ Model3D m where
+  spinZ z modelM = spinXYZ (0, 0, z) modelM
 
 -------------------------------------------------------------------------------
 -- / 3D / Transform / Move
@@ -893,9 +952,10 @@ instance MonadNeon m => MoveZ Model3D m where
 -------------------------------------------------------------------------------
 
 instance MonadNeon m => Union Model3D m where
-  union modelsM = do
-    models <- sequence modelsM
-    pure $ Transform3D Union3D models
+  union modelAM modelBM = do
+    modelA <- modelAM
+    modelB <- modelBM
+    pure $ Transform3D Union3D [modelA, modelB]
 
 -------------------------------------------------------------------------------
 -- / 3D / Transform / Intersection
@@ -907,7 +967,11 @@ instance MonadNeon m => Union Model3D m where
 -- / 3D / Transform / Difference
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+instance MonadNeon m => Difference Model3D m where
+  difference modelAM modelBM = do
+    modelA <- modelAM
+    modelB <- modelBM
+    pure $ Transform3D Difference3D [modelA, modelB]
 
 -------------------------------------------------------------------------------
 -- / 3D / Transform / Hull
