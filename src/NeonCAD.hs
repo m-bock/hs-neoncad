@@ -20,10 +20,9 @@ module NeonCAD (
   cube, cubeCenter,
 
   empty,
-  many,
 
   -- Transform
-  union, intersection, difference,
+  union, unions, intersection, intersections, difference,
   scaleXY, scaleX, scaleY, scaleXZ, scaleYZ, scaleXYZ,
   resizeXY, resizeX, resizeY,
   moveXYZ, moveXY, moveXZ, moveYZ, moveX, moveY, moveZ,
@@ -62,6 +61,7 @@ import OpenSCAD
   , V2, V3
   , Facets(..), Font(..)
   )
+import Optimizer (optimize2D, optimize3D)
 import Data.Functor.Identity (Identity (runIdentity))
 
 -------------------------------------------------------------------------------
@@ -131,6 +131,13 @@ class (Monad m) => MonadNeon m where
 
 class ToModel2D a m where
     toModel2D :: a -> m Model2D
+
+-------------------------------------------------------------------------------
+-- / Classes / Comment
+-------------------------------------------------------------------------------
+
+class Comment a m where
+  comment :: String -> m a -> m a
 
 -------------------------------------------------------------------------------
 -- / Classes / Scale
@@ -270,6 +277,7 @@ class Hull a m where
 
 class Union a m where
   union :: m a -> m a -> m a
+  unions :: [m a] -> m a
 
 -------------------------------------------------------------------------------
 -- / Classes / Empty
@@ -284,15 +292,13 @@ instance MonadNeon m => Empty Model2D m where
 instance MonadNeon m => Empty Model3D m where
   empty = pure $ BoolOp3D Union3D []
 
-many :: (MonadNeon m, Empty a m) => (m a -> m a -> m a) -> [m a] -> m a
-many f modelsM = foldr f empty modelsM
-
 -------------------------------------------------------------------------------
 -- / Classes / Intersection
 -------------------------------------------------------------------------------
 
 class Intersection a m where
   intersection :: m a -> m a -> m a
+  intersections :: [m a] -> m a
 
 -------------------------------------------------------------------------------
 -- / Classes / Difference
@@ -315,10 +321,10 @@ class Modifiers a m where
 -- / 2D / Comment
 -------------------------------------------------------------------------------
 
-comment :: (MonadNeon m) => String -> m Model2D -> m Model2D
-comment text modelM = do
-  model <- modelM
-  pure $ Comment2D text model
+instance MonadNeon m => Comment Model2D m where
+  comment txt modelM = do
+    model <- modelM
+    pure $ Comment2D txt model
 
 -------------------------------------------------------------------------------
 -- / 2D / Modifiers
@@ -715,7 +721,7 @@ instance MonadNeon m => Hull Model2D m where
     pure $ Transform2D Hull2D [model]
 
 -------------------------------------------------------------------------------
--- / 2D / Transform / Union
+-- / 2D / BoolOp / Union
 -------------------------------------------------------------------------------
 
 instance MonadNeon m => Union Model2D m where
@@ -724,8 +730,12 @@ instance MonadNeon m => Union Model2D m where
     modelB <- modelBM
     pure $ BoolOp2D Union2D [modelA, modelB]
 
+  unions modelsM = do
+    models <- sequence modelsM
+    pure $ BoolOp2D Union2D models
+
 -------------------------------------------------------------------------------
--- / 2D / Transform / Intersection
+-- / 2D / BoolOp / Intersection
 -------------------------------------------------------------------------------
 
 instance MonadNeon m => Intersection Model2D m where
@@ -734,8 +744,12 @@ instance MonadNeon m => Intersection Model2D m where
     modelB <- modelBM
     pure $ BoolOp2D Intersection2D [modelA, modelB]
 
+  intersections modelsM = do
+    models <- sequence modelsM
+    pure $ BoolOp2D Intersection2D models
+
 -------------------------------------------------------------------------------
--- / 2D / Transform / Difference
+-- / 2D / BoolOp / Difference
 -------------------------------------------------------------------------------
 
 instance MonadNeon m => Difference Model2D m where
@@ -763,7 +777,10 @@ extrudeWithSpin height modelM = do
 -- / 3D / Comment
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+instance MonadNeon m => Comment Model3D m where
+  comment txt modelM = do
+    model <- modelM
+    pure $ Comment3D txt model
 
 -------------------------------------------------------------------------------
 -- / 3D / Modifiers
@@ -952,7 +969,14 @@ instance MonadNeon m => MoveZ Model3D m where
 -- /3D / Transform / Color
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+instance MonadNeon m => Color Model3D m where
+  color c a modelM = do
+    model <- modelM
+    pure $ Transform3D Color3D
+      { colorColor = c
+      , colorAlpha = a
+      }
+      [model]
 
 -------------------------------------------------------------------------------
 -- / 3D / Transform / Union
@@ -968,7 +992,11 @@ instance MonadNeon m => Union Model3D m where
 -- / 3D / Transform / Intersection
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+instance MonadNeon m => Intersection Model3D m where
+  intersection modelAM modelBM = do
+    modelA <- modelAM
+    modelB <- modelBM
+    pure $ BoolOp3D Intersection3D [modelA, modelB]
 
 -------------------------------------------------------------------------------
 -- / 3D / Transform / Difference
@@ -984,7 +1012,10 @@ instance MonadNeon m => Difference Model3D m where
 -- / 3D / Transform / Hull
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+instance MonadNeon m => Hull Model3D m where
+  hull modelM = do
+    model <- modelM
+    pure $ Transform3D Hull3D [model]
 
 -------------------------------------------------------------------------------
 -- / 2D-3D Conversion
@@ -1070,7 +1101,7 @@ spareFlag b = spareOpt b False
 -------------------------------------------------------------------------------
 
 render2D :: Model2D -> String
-render2D model = OpenSCAD.render2D model
+render2D = OpenSCAD.render2D
 
 render3D :: Model3D -> String
-render3D model = OpenSCAD.render3D model
+render3D = OpenSCAD.render3D

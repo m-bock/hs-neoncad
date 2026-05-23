@@ -2,189 +2,173 @@
 union(){
   translate(v=[0, 100, 0])
     union(){
-      union()
-        translate(v=[0, 0, 0])
+      translate(v=[0, 0, 0])
+        // Circle
+        translate(v=[100, 0, 0])
+          union(){
+            translate(v=[0, 0, 0])
+              // circleR
+              circle(d=100, $fa=6, $fs=0.5);
+            translate(v=[200, 0, 0])
+              // circleD
+              circle(d=50, $fa=6, $fs=0.5);
+          }
+      translate(v=[0, 200, 0])
+        // Ellipse
+        translate(v=[100, 0, 0])
+          union(){
+            translate(v=[0, 0, 0])
+              resize(newsize=[100, 60])
+                circle(d=200, $fa=6, $fs=0.5);
+            translate(v=[200, 0, 0])
+              resize(newsize=[50, 30])
+                circle(d=100, $fa=6, $fs=0.5);
+          }
+      translate(v=[0, 400, 0])
+        // Rect
+        translate(v=[100, 0, 0])
+          union(){
+            translate(v=[0, 0, 0])
+              square(size=[50, 30]);
+            translate(v=[200, 0, 0])
+              square(size=[50, 30], center=true);
+          }
+      translate(v=[0, 600, 0])
+        // Square
+        translate(v=[100, 0, 0])
+          union(){
+            translate(v=[0, 0, 0])
+              square(size=[50, 50]);
+            translate(v=[200, 0, 0])
+              square(size=[50, 50], center=true);
+          }
+      translate(v=[0, 800, 0])
+        // Polygon
+        translate(v=[100, 0, 0])
           union()
-            // Circle
-            translate(v=[100, 0, 0])
-              union(){
-                translate(v=[0, 0, 0])
-                  // circleR
-                  circle(d=100, $fa=6, $fs=0.5);
-                translate(v=[200, 0, 0])
-                  // circleD
+            translate(v=[0, 0, 0])
+              polygon(points=[[17, 17], [38, 33], [58, 15], [90, 35], [81, 75], [59, 59], [43, 68], [45, 80], [18, 86], [8, 46], [17, 17]], convexity=10);
+      translate(v=[0, 1000, 0])
+        // Scale
+        translate(v=[100, 0, 0])
+          union(){
+            translate(v=[0, 0, 0])
+              square(size=[20, 30]);
+            translate(v=[200, 0, 0])
+              scale(v=[2, 1])
+                square(size=[20, 30]);
+            translate(v=[400, 0, 0])
+              scale(v=[1, 2])
+                scale(v=[2, 1])
+                  square(size=[20, 30]);
+            translate(v=[600, 0, 0])
+              scale(v=[2, 2])
+                scale(v=[2, 1])
+                  square(size=[20, 30]);
+          }
+      translate(v=[0, 1200, 0])
+        // Resize
+        translate(v=[100, 0, 0])
+          union(){
+            translate(v=[0, 0, 0])
+              square(size=[20, 30]);
+            translate(v=[200, 0, 0])
+              resize(newsize=[40, 0])
+                square(size=[20, 30]);
+            translate(v=[400, 0, 0])
+              resize(newsize=[0, 60])
+                resize(newsize=[20, 0])
+                  square(size=[20, 30]);
+            translate(v=[600, 0, 0])
+              resize(newsize=[40, 60])
+                resize(newsize=[20, 0])
+                  square(size=[20, 30]);
+          }
+      translate(v=[0, 1400, 0])
+        // Rotate
+        translate(v=[100, 0, 0])
+          union(){
+            translate(v=[0, 0, 0])
+              square(size=[50, 30]);
+            translate(v=[200, 0, 0])
+              rotate(a=[0, 0, 45])
+                square(size=[50, 30]);
+            translate(v=[400, 0, 0])
+              rotate(a=[0, 0, 90])
+                square(size=[50, 30]);
+            translate(v=[600, 0, 0])
+              rotate(a=[0, 0, 135])
+                square(size=[50, 30]);
+            translate(v=[800, 0, 0])
+              rotate(a=[0, 0, 180])
+                square(size=[50, 30]);
+            translate(v=[1000, 0, 0])
+              rotate(a=[0, 0, 225])
+                square(size=[50, 30]);
+            translate(v=[1200, 0, 0])
+              rotate(a=[0, 0, 270])
+                square(size=[50, 30]);
+            translate(v=[1400, 0, 0])
+              rotate(a=[0, 0, 315])
+                square(size=[50, 30]);
+            translate(v=[1600, 0, 0])
+              rotate(a=[0, 0, 360])
+                square(size=[50, 30]);
+          }
+      translate(v=[0, 1600, 0])
+        // Mirror
+        translate(v=[100, 0, 0])
+          union(){
+            translate(v=[0, 0, 0])
+              square(size=[50, 30]);
+            translate(v=[200, 0, 0])
+              mirror(v=[1, 0])
+                square(size=[50, 30]);
+          }
+      translate(v=[0, 1800, 0])
+        // Color
+        translate(v=[100, 0, 0])
+          union(){
+            translate(v=[0, 0, 0])
+              square(size=[50, 30]);
+            translate(v=[200, 0, 0])
+              color(c=[1, 0, 0])
+                square(size=[50, 30]);
+            translate(v=[400, 0, 0])
+              color(c=[1, 0, 0], alpha=0.5)
+                square(size=[50, 30]);
+            translate(v=[600, 0, 0])
+              color(c=[1, 0, 0], alpha=0.5)
+                square(size=[50, 30]);
+          }
+      translate(v=[0, 2000, 0])
+        // Text
+        translate(v=[100, 0, 0])
+          union()
+            translate(v=[0, 0, 0])
+              text(text="Hello, World!", $fa=6, $fs=0.5);
+      translate(v=[0, 2200, 0])
+        translate(v=[100, 0, 0])
+          union()
+            translate(v=[0, 0, 0])
+              hull()
+                union(){
+                  #
+                  translate(v=[50, 50, 0])
+                    square(size=[50, 50], center=true);
+                  #
                   circle(d=50, $fa=6, $fs=0.5);
-              }
-      union()
-        translate(v=[0, 200, 0])
+                }
+      translate(v=[0, 2400, 0])
+        translate(v=[100, 0, 0])
           union()
-            // Ellipse
-            translate(v=[100, 0, 0])
-              union(){
-                translate(v=[0, 0, 0])
-                  resize(newsize=[100, 60])
-                    circle(d=200, $fa=6, $fs=0.5);
-                translate(v=[200, 0, 0])
-                  resize(newsize=[50, 30])
-                    circle(d=100, $fa=6, $fs=0.5);
-              }
-      union()
-        translate(v=[0, 400, 0])
-          union()
-            translate(v=[100, 0, 0])
-              union(){
-                translate(v=[0, 0, 0])
-                  square(size=[50, 30]);
-                translate(v=[200, 0, 0])
-                  square(size=[50, 30], center=true);
-              }
-      union()
-        translate(v=[0, 600, 0])
-          union()
-            translate(v=[100, 0, 0])
-              union(){
-                translate(v=[0, 0, 0])
-                  square(size=[50, 50]);
-                translate(v=[200, 0, 0])
+            translate(v=[0, 0, 0])
+              difference(){
+                translate(v=[50, 50, 0])
                   square(size=[50, 50], center=true);
+                %
+                circle(d=100, $fa=6, $fs=0.5);
               }
-      union()
-        translate(v=[0, 800, 0])
-          union()
-            translate(v=[100, 0, 0])
-              union()
-                translate(v=[0, 0, 0])
-                  polygon(points=[[17, 17], [38, 33], [58, 15], [90, 35], [81, 75], [59, 59], [43, 68], [45, 80], [18, 86], [8, 46], [17, 17]], convexity=10);
-      union()
-        translate(v=[0, 1000, 0])
-          union()
-            translate(v=[100, 0, 0])
-              union(){
-                translate(v=[0, 0, 0])
-                  square(size=[20, 30]);
-                translate(v=[200, 0, 0])
-                  scale(v=[2, 1])
-                    square(size=[20, 30]);
-                translate(v=[400, 0, 0])
-                  scale(v=[1, 2])
-                    scale(v=[2, 1])
-                      square(size=[20, 30]);
-                translate(v=[600, 0, 0])
-                  scale(v=[2, 2])
-                    scale(v=[2, 1])
-                      square(size=[20, 30]);
-              }
-      union()
-        translate(v=[0, 1200, 0])
-          union()
-            translate(v=[100, 0, 0])
-              union(){
-                translate(v=[0, 0, 0])
-                  square(size=[20, 30]);
-                translate(v=[200, 0, 0])
-                  resize(newsize=[40, 0])
-                    square(size=[20, 30]);
-                translate(v=[400, 0, 0])
-                  resize(newsize=[0, 60])
-                    resize(newsize=[20, 0])
-                      square(size=[20, 30]);
-                translate(v=[600, 0, 0])
-                  resize(newsize=[40, 60])
-                    resize(newsize=[20, 0])
-                      square(size=[20, 30]);
-              }
-      union()
-        translate(v=[0, 1400, 0])
-          union()
-            translate(v=[100, 0, 0])
-              union(){
-                translate(v=[0, 0, 0])
-                  square(size=[50, 30]);
-                translate(v=[200, 0, 0])
-                  rotate(a=45)
-                    square(size=[50, 30]);
-                translate(v=[400, 0, 0])
-                  rotate(a=90)
-                    square(size=[50, 30]);
-                translate(v=[600, 0, 0])
-                  rotate(a=135)
-                    square(size=[50, 30]);
-                translate(v=[800, 0, 0])
-                  rotate(a=180)
-                    square(size=[50, 30]);
-                translate(v=[1000, 0, 0])
-                  rotate(a=225)
-                    square(size=[50, 30]);
-                translate(v=[1200, 0, 0])
-                  rotate(a=270)
-                    square(size=[50, 30]);
-                translate(v=[1400, 0, 0])
-                  rotate(a=315)
-                    square(size=[50, 30]);
-                translate(v=[1600, 0, 0])
-                  rotate(a=360)
-                    square(size=[50, 30]);
-              }
-      union()
-        translate(v=[0, 1600, 0])
-          union()
-            translate(v=[100, 0, 0])
-              union(){
-                translate(v=[0, 0, 0])
-                  square(size=[50, 30]);
-                translate(v=[200, 0, 0])
-                  mirror(v=[1, 0])
-                    square(size=[50, 30]);
-              }
-      union()
-        translate(v=[0, 1800, 0])
-          union()
-            translate(v=[100, 0, 0])
-              union(){
-                translate(v=[0, 0, 0])
-                  square(size=[50, 30]);
-                translate(v=[200, 0, 0])
-                  color(c=[1, 0, 0])
-                    square(size=[50, 30]);
-                translate(v=[400, 0, 0])
-                  color(c=[1, 0, 0], alpha=0.5)
-                    square(size=[50, 30]);
-                translate(v=[600, 0, 0])
-                  color(c=[1, 0, 0], alpha=0.5)
-                    square(size=[50, 30]);
-              }
-      union()
-        translate(v=[0, 2000, 0])
-          union()
-            translate(v=[100, 0, 0])
-              union()
-                translate(v=[0, 0, 0])
-                  text(text="Hello, World!", $fa=6, $fs=0.5);
-      union()
-        translate(v=[0, 2200, 0])
-          union()
-            translate(v=[100, 0, 0])
-              union()
-                translate(v=[0, 0, 0])
-                  hull(){
-                    #
-                    translate(v=[50, 50, 0])
-                      square(size=[50, 50], center=true);
-                    #
-                    circle(d=50, $fa=6, $fs=0.5);
-                  }
-      union()
-        translate(v=[0, 2400, 0])
-          union()
-            translate(v=[100, 0, 0])
-              union()
-                translate(v=[0, 0, 0])
-                  difference(){
-                    translate(v=[50, 50, 0])
-                      square(size=[50, 50], center=true);
-                    %
-                    circle(d=100, $fa=6, $fs=0.5);
-                  }
     }
   // Grid
   translate(v=[100, 100, 0])
