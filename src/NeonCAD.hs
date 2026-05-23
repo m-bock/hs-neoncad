@@ -31,7 +31,10 @@ module NeonCAD (
   mirrorXY, mirrorX, mirrorY,
   colorRGB, colorRGBA, color,
   hull,
+
+  -- 2D-3D Conversion
   extrudeLinear,
+  extrudeWithSpin,
   
   -- Modifiers
   modDisable, modShowOnly, modHighlight, modTransparent,
@@ -619,19 +622,13 @@ instance MonadNeon m => ResizeAutoY Model2D m where
 -- / 2D / Transform / Spin
 -------------------------------------------------------------------------------
 
-instance MonadNeon m => SpinXY Model2D m where
-  spinXY (x, y) modelM = do
+instance MonadNeon m => SpinZ Model2D m where
+  spinZ z modelM = do
     model <- modelM
     pure $ Transform2D RotateEuler2D
-      { rotateEulerVector  = (x, y)
+      { rotateEulerVector  = (0, 0, z)
       }
       [model]
-
-instance MonadNeon m => SpinX Model2D m where
-  spinX angle modelM = spinXY (angle, 0) modelM
-
-instance MonadNeon m => SpinY Model2D m where
-  spinY angle modelM = spinXY (0, angle) modelM
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Move
@@ -750,7 +747,16 @@ instance MonadNeon m => Difference Model2D m where
 -- / 2D / Extrude / Rotational
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+extrudeWithSpin :: (MonadNeon m) => Double -> m Model2D -> m Model3D
+extrudeWithSpin height modelM = do
+  model <- modelM
+  facets <- askFacets
+  pure $ Extrude3D RotateExtrude
+    { rotateAngle = height
+    , rotateConvexity = Nothing
+    , rotateFacets = Just facets
+    }
+    [model]
 
 -------------------------------------------------------------------------------
 -- / 3D / Comment
