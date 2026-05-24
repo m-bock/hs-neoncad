@@ -73,8 +73,6 @@ import Data.Functor.Identity (Identity (runIdentity))
 
 data Radial = Radius Double | Diameter Double
 
-data ResizeOp = Auto | Keep | Set Double
-
 -------------------------------------------------------------------------------
 -- / Monad
 -------------------------------------------------------------------------------
@@ -600,7 +598,7 @@ class Hull a m where
 instance MonadNeon m => Hull Model2D m where
   hull modelM = do
     model <- modelM
-    pure $ BoolOp2D Hull2D [model]
+    pure $ Transform2D Hull2D [model]
 
 
 -- * 3D
@@ -608,7 +606,7 @@ instance MonadNeon m => Hull Model2D m where
 instance MonadNeon m => Hull Model3D m where
   hull modelM = do
     model <- modelM
-    pure $ BoolOp3D Hull3D [model]
+    pure $ Transform3D Hull3D [model]
 
 -------------------------------------------------------------------------------
 -- / Classes / Union
@@ -618,6 +616,28 @@ class Union a m where
   union :: m a -> m a -> m a
   unions :: [m a] -> m a
 
+
+-- * 2D
+
+instance MonadNeon m => Union Model2D m where
+  union modelAM modelBM = do
+    modelA <- modelAM
+    modelB <- modelBM
+    pure $ BoolOp2D Union2D [modelA, modelB]
+
+  unions modelsM = do
+    models <- sequence modelsM
+    pure $ BoolOp2D Union2D models
+
+
+-- * 3D
+
+instance MonadNeon m => Union Model3D m where
+  union modelAM modelBM = do
+    modelA <- modelAM
+    modelB <- modelBM
+    pure $ BoolOp3D Union3D [modelA, modelB]
+
 -------------------------------------------------------------------------------
 -- / Classes / Empty
 -------------------------------------------------------------------------------
@@ -625,8 +645,14 @@ class Union a m where
 class Empty a m where
   empty :: m a
 
+
+-- * 2D
+
 instance MonadNeon m => Empty Model2D m where
   empty = pure $ BoolOp2D Union2D []
+
+
+-- * 3D
 
 instance MonadNeon m => Empty Model3D m where
   empty = pure $ BoolOp3D Union3D []
@@ -639,12 +665,52 @@ class Intersection a m where
   intersection :: m a -> m a -> m a
   intersections :: [m a] -> m a
 
+
+-- * 2D
+
+instance MonadNeon m => Intersection Model2D m where
+  intersection modelAM modelBM = do
+    modelA <- modelAM
+    modelB <- modelBM
+    pure $ BoolOp2D Intersection2D [modelA, modelB]
+
+  intersections modelsM = do
+    models <- sequence modelsM
+    pure $ BoolOp2D Intersection2D models
+
+
+-- * 3D
+
+instance MonadNeon m => Intersection Model3D m where
+  intersection modelAM modelBM = do
+    modelA <- modelAM
+    modelB <- modelBM
+    pure $ BoolOp3D Intersection3D [modelA, modelB]
+
 -------------------------------------------------------------------------------
 -- / Classes / Difference
 -------------------------------------------------------------------------------
 
 class Difference a m where
   difference :: m a -> m a -> m a
+
+
+-- * 2D
+
+instance MonadNeon m => Difference Model2D m where
+  difference modelAM modelBM = do
+    modelA <- modelAM
+    modelB <- modelBM
+    pure $ BoolOp2D Difference2D [modelA, modelB]
+
+
+-- * 3D
+
+instance MonadNeon m => Difference Model3D m where
+  difference modelAM modelBM = do
+    modelA <- modelAM
+    modelB <- modelBM
+    pure $ BoolOp3D Difference3D [modelA, modelB]
 
 -------------------------------------------------------------------------------
 -- / Classes / Modifiers
@@ -656,9 +722,8 @@ class Modifiers a m where
   modHighlight :: m a -> m a
   modTransparent :: m a -> m a
 
--------------------------------------------------------------------------------
--- / 2D / Modifiers
--------------------------------------------------------------------------------
+
+-- * 2D
 
 instance MonadNeon m => Modifiers Model2D m where
   modDisable modelM = do
@@ -673,6 +738,20 @@ instance MonadNeon m => Modifiers Model2D m where
   modTransparent modelM = do
     model <- modelM
     pure $ Modifier2D ModTransparent model
+
+
+-- * 3D
+
+instance MonadNeon m => Modifiers Model3D m where
+  modDisable modelM = do
+    model <- modelM
+    pure $ Modifier3D ModDisable model
+  modShowOnly modelM = do
+    model <- modelM
+    pure $ Modifier3D ModShowOnly model
+  modHighlight modelM = do
+    model <- modelM
+    pure $ Modifier3D ModHighlight model
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Circle
@@ -920,44 +999,6 @@ offsetCut :: (MonadNeon m) => Double -> m Model2D -> m Model2D
 offsetCut = undefined
 
 -------------------------------------------------------------------------------
--- / 2D / BoolOp / Union
--------------------------------------------------------------------------------
-
-instance MonadNeon m => Union Model2D m where
-  union modelAM modelBM = do
-    modelA <- modelAM
-    modelB <- modelBM
-    pure $ BoolOp2D Union2D [modelA, modelB]
-
-  unions modelsM = do
-    models <- sequence modelsM
-    pure $ BoolOp2D Union2D models
-
--------------------------------------------------------------------------------
--- / 2D / BoolOp / Intersection
--------------------------------------------------------------------------------
-
-instance MonadNeon m => Intersection Model2D m where
-  intersection modelAM modelBM = do
-    modelA <- modelAM
-    modelB <- modelBM
-    pure $ BoolOp2D Intersection2D [modelA, modelB]
-
-  intersections modelsM = do
-    models <- sequence modelsM
-    pure $ BoolOp2D Intersection2D models
-
--------------------------------------------------------------------------------
--- / 2D / BoolOp / Difference
--------------------------------------------------------------------------------
-
-instance MonadNeon m => Difference Model2D m where
-  difference modelAM modelBM = do
-    modelA <- modelAM
-    modelB <- modelBM
-    pure $ BoolOp2D Difference2D [modelA, modelB]
-
--------------------------------------------------------------------------------
 -- / 2D / Extrude / Rotational
 -------------------------------------------------------------------------------
 
@@ -971,21 +1012,6 @@ extrudeWithSpin height modelM = do
     , rotateFacets = Just facets
     }
     [model]
-
--------------------------------------------------------------------------------
--- / 3D / Modifiers
--------------------------------------------------------------------------------
-
-instance MonadNeon m => Modifiers Model3D m where
-  modDisable modelM = do
-    model <- modelM
-    pure $ Modifier3D ModDisable model
-  modShowOnly modelM = do
-    model <- modelM
-    pure $ Modifier3D ModShowOnly model
-  modHighlight modelM = do
-    model <- modelM
-    pure $ Modifier3D ModHighlight model
 
 -------------------------------------------------------------------------------
 -- / 3D / Primitive / Box
@@ -1048,36 +1074,6 @@ cubeCenter size = pure $ Primitive3D $ Cube3D
 -------------------------------------------------------------------------------
 
 -- TODO: Implement
-
--------------------------------------------------------------------------------
--- / 3D / Transform / Union
--------------------------------------------------------------------------------
-
-instance MonadNeon m => Union Model3D m where
-  union modelAM modelBM = do
-    modelA <- modelAM
-    modelB <- modelBM
-    pure $ BoolOp3D Union3D [modelA, modelB]
-
--------------------------------------------------------------------------------
--- / 3D / Transform / Intersection
--------------------------------------------------------------------------------
-
-instance MonadNeon m => Intersection Model3D m where
-  intersection modelAM modelBM = do
-    modelA <- modelAM
-    modelB <- modelBM
-    pure $ BoolOp3D Intersection3D [modelA, modelB]
-
--------------------------------------------------------------------------------
--- / 3D / Transform / Difference
--------------------------------------------------------------------------------
-
-instance MonadNeon m => Difference Model3D m where
-  difference modelAM modelBM = do
-    modelA <- modelAM
-    modelB <- modelBM
-    pure $ BoolOp3D Difference3D [modelA, modelB]
 
 -------------------------------------------------------------------------------
 -- / 2D-3D Conversion
@@ -1144,12 +1140,6 @@ project = undefined
 radialToDiameter :: Radial -> Double
 radialToDiameter (Radius r)   = r * 2
 radialToDiameter (Diameter d) = d
-
-getValueAndAuto :: ResizeOp -> (Double, Bool)
-getValueAndAuto op = case op of
-  Auto  -> (0, True)
-  Keep  -> (0, False)
-  Set d -> (d, False)
 
 spareOpt :: Eq a => a -> a -> Maybe a
 spareOpt x y = if x == y then Nothing else Just x
