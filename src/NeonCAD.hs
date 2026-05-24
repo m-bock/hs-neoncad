@@ -1,6 +1,7 @@
 {- FOURMOLU_DISABLE -}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Eta reduce" #-}
+{-# HLINT ignore "Use <$>" #-}
 
 module NeonCAD (
   comment,
@@ -13,7 +14,6 @@ module NeonCAD (
   square, squareCenter,
   polygon,
   text, defaultTextOpts, TextOpts, FontName, FontStyle,
-  
 
   -- 3D / Primitive
   box, boxCenter,
@@ -22,22 +22,23 @@ module NeonCAD (
   empty,
 
   -- Transform
-  union, unions, intersection, intersections, difference,
-  scaleXY, scaleX, scaleY, scaleXZ, scaleYZ, scaleXYZ,
-  resizeXY, resizeX, resizeY,
+  union, unions,
+  intersection, intersections,
+  difference,
+  scaleXYZ, scaleXY, scaleXZ, scaleYZ, scaleX, scaleY, scaleZ,
+  resizeXYZ, resizeXY, resizeXZ, resizeYZ, resizeX, resizeY, resizeZ,
+  resizeAutoXY, resizeAutoXZ, resizeAutoYZ, resizeAutoX, resizeAutoY, resizeAutoZ,
   moveXYZ, moveXY, moveXZ, moveYZ, moveX, moveY, moveZ,
-  spinXY, spinXZ, spinYZ, spinX, spinY, spinZ, spinXYZ,
-  mirrorXY, mirrorX, mirrorY,
+  spinXYZ, spinXY, spinXZ, spinYZ, spinX, spinY, spinZ,
+  mirrorXYZ, mirrorXY, mirrorXZ, mirrorX, mirrorY, mirrorZ,
   colorRGB, colorRGBA, color,
   hull,
 
   -- 2D-3D Conversion
-  extrudeLinear,
-  extrudeWithSpin,
-  
+  extrudeLinear, extrudeWithSpin,
+
   -- Modifiers
   modDisable, modShowOnly, modHighlight, modTransparent,
-  
 
   runNeonM, runNeonT,
   fn, fa, fs, defaultFacets,
@@ -50,7 +51,8 @@ module NeonCAD (
 -- / Imports
 -------------------------------------------------------------------------------
 
-import qualified OpenSCAD as OpenSCAD
+import qualified OpenSCAD
+
 import OpenSCAD
   ( Model2D(..), Primitive2D(..), Transform2D(..)
   , Model3D(..), Primitive3D(..), Transform3D(..)
@@ -59,9 +61,10 @@ import OpenSCAD
   , Extrude3D(..)
   , BoolOp2D(..), BoolOp3D(..)
   , V2, V3
-  , Facets(..), Font(..)
+  , Facets(..)
+  , Font(..)
   )
-import Optimizer (optimize2D, optimize3D)
+
 import Data.Functor.Identity (Identity (runIdentity))
 
 -------------------------------------------------------------------------------
@@ -100,7 +103,7 @@ instance Monad m => MonadNeon (NeonT m) where
   localFacets facets m = NeonT $ \_ -> runNeonT facets m
 
 -------------------------------------------------------------------------------
--- / Factes
+-- / Facets
 -------------------------------------------------------------------------------
 
 -- Usage e.g.: `fn 10 <> fa 0.1 <> fs 0.1`
@@ -139,6 +142,16 @@ class ToModel2D a m where
 class Comment a m where
   comment :: String -> m a -> m a
 
+instance MonadNeon m => Comment Model2D m where
+  comment txt modelM = do
+    model <- modelM
+    pure $ Comment2D txt model
+
+instance MonadNeon m => Comment Model3D m where
+  comment txt modelM = do
+    model <- modelM
+    pure $ Comment3D txt model
+
 -------------------------------------------------------------------------------
 -- / Classes / Scale
 -------------------------------------------------------------------------------
@@ -164,18 +177,49 @@ class ScaleY a m where
 class ScaleZ a m where
   scaleZ :: Double -> m a -> m a
 
+
+-- * 2D
+
+instance MonadNeon m => ScaleXY Model2D m where
+  scaleXY (x, y) modelM = do
+    model <- modelM
+    pure $ Transform2D (Scale2D (x, y)) [model]
+
+instance MonadNeon m => ScaleX Model2D m where
+  scaleX x modelM = scaleXY (x, 1) modelM
+
+instance MonadNeon m => ScaleY Model2D m where
+  scaleY y modelM = scaleXY (1, y) modelM
+
+
+-- * 3D
+
+instance MonadNeon m => ScaleXYZ Model3D m where
+  scaleXYZ v modelM = do
+    model <- modelM
+    pure $ Transform3D (Scale3D v) [model]
+
+instance MonadNeon m => ScaleXY Model3D m where
+  scaleXY (x, y) modelM = scaleXYZ (x, y, 1) modelM
+  
+instance MonadNeon m => ScaleXZ Model3D m where
+  scaleXZ (x, z) modelM = scaleXYZ (x, 1, z) modelM
+
+instance MonadNeon m => ScaleYZ Model3D m where
+  scaleYZ (y, z) modelM = scaleXYZ (1, y, z) modelM
+
+instance MonadNeon m => ScaleX Model3D m where
+  scaleX x modelM = scaleXYZ (x, 1, 1) modelM
+
+instance MonadNeon m => ScaleY Model3D m where
+  scaleY y modelM = scaleXYZ (1, y, 1) modelM
+
 -------------------------------------------------------------------------------
 -- / Classes / Move
 -------------------------------------------------------------------------------
 
-class MoveX a m where
-  moveX :: Double -> m a -> m a
-
-class MoveY a m where
-  moveY :: Double -> m a -> m a
-
-class MoveZ a m where
-  moveZ :: Double -> m a -> m a
+class MoveXYZ a m where
+  moveXYZ :: V3 Double -> m a -> m a
 
 class MoveXY a m where
   moveXY :: V2 Double -> m a -> m a
@@ -186,8 +230,60 @@ class MoveXZ a m where
 class MoveYZ a m where
   moveYZ :: V2 Double -> m a -> m a
 
-class MoveXYZ a m where
-  moveXYZ :: V3 Double -> m a -> m a
+class MoveX a m where
+  moveX :: Double -> m a -> m a
+
+class MoveY a m where
+  moveY :: Double -> m a -> m a
+
+class MoveZ a m where
+  moveZ :: Double -> m a -> m a
+
+
+-- * 2D
+
+instance MonadNeon m => MoveXY Model2D m where
+  moveXY (x, y) modelM = do
+    model <- modelM
+    pure $ Transform2D (Translate2D (x, y, 0)) [model]
+
+instance MonadNeon m => MoveX Model2D m where
+  moveX x modelM = moveXY (x, 0) modelM
+
+instance MonadNeon m => MoveY Model2D m where
+  moveY y modelM = moveXY (0, y) modelM
+
+instance MonadNeon m => MoveZ Model2D m where
+  moveZ z modelM = do
+    model <- modelM
+    pure $ Transform2D (Translate2D (0, 0, z)) [model]
+
+
+-- * 3D
+
+instance MonadNeon m => MoveXYZ Model3D m where
+  moveXYZ v modelM = do
+    model <- modelM
+    pure $ Transform3D (Translate3D v) [model]
+
+instance MonadNeon m => MoveXY Model3D m where
+  moveXY (x, y) modelM = moveXYZ (x, y, 0) modelM
+
+instance MonadNeon m => MoveXZ Model3D m where
+  moveXZ (x, z) modelM = moveXYZ (x, 0, z) modelM
+
+instance MonadNeon m => MoveYZ Model3D m where
+  moveYZ (y, z) modelM = moveXYZ (0, y, z) modelM
+
+instance MonadNeon m => MoveX Model3D m where
+  moveX x modelM = moveXYZ (x, 0, 0) modelM
+
+instance MonadNeon m => MoveY Model3D m where
+  moveY y modelM = moveXYZ (0, y, 0) modelM
+
+instance MonadNeon m => MoveZ Model3D m where
+  moveZ z modelM = moveXYZ (0, 0, z) modelM
+
 
 -------------------------------------------------------------------------------
 -- / Classes / Resize
@@ -199,17 +295,130 @@ class ResizeXYZ a m where
 class ResizeXY a m where
   resizeXY :: V2 Double -> m a -> m a
 
+class ResizeXZ a m where
+  resizeXZ :: V2 Double -> m a -> m a
+
+class ResizeYZ a m where
+  resizeYZ :: V2 Double -> m a -> m a
+
 class ResizeX a m where
   resizeX :: Double -> m a -> m a
 
 class ResizeY a m where
   resizeY :: Double -> m a -> m a
 
+class ResizeZ a m where
+  resizeZ :: Double -> m a -> m a
+
+
+-- * 2D
+
+instance MonadNeon m => ResizeXY Model2D m where
+  resizeXY (x, y) modelM = do
+    model <- modelM
+    pure $ Transform2D (Resize2D (x, y) Nothing) [model]
+    
+    
+instance MonadNeon m => ResizeX Model2D m where
+  resizeX x modelM = resizeXY (x, 1) modelM
+
+instance MonadNeon m => ResizeY Model2D m where
+  resizeY y modelM = resizeXY (1, y) modelM
+
+
+-- * 3D
+
+instance MonadNeon m => ResizeXYZ Model3D m where
+  resizeXYZ (x, y, z) modelM = do
+    model <- modelM
+    pure $ Transform3D (Resize3D (x, y, z) Nothing) [model]
+    
+instance MonadNeon m => ResizeXY Model3D m where
+  resizeXY (x, y) modelM = resizeXYZ (x, y, 0) modelM
+  
+instance MonadNeon m => ResizeXZ Model3D m where
+  resizeXZ (x, z) modelM = resizeXYZ (x, 1, z) modelM
+
+instance MonadNeon m => ResizeYZ Model3D m where
+  resizeYZ (y, z) modelM = resizeXYZ (1, y, z) modelM
+
+instance MonadNeon m => ResizeX Model3D m where
+  resizeX x modelM = resizeXYZ (x, 1, 1) modelM
+
+instance MonadNeon m => ResizeY Model3D m where
+  resizeY y modelM = resizeXYZ (1, y, 1) modelM
+
+instance MonadNeon m => ResizeZ Model3D m where
+  resizeZ z modelM = resizeXYZ (1, 1, z) modelM
+
+-------------------------------------------------------------------------------
+-- / Classes / Resize Auto
+-------------------------------------------------------------------------------
+
+class ResizeAutoXY a m where
+  resizeAutoXY :: V2 Double -> m a -> m a
+
+class ResizeAutoXZ a m where
+  resizeAutoXZ :: V2 Double -> m a -> m a
+
+class ResizeAutoYZ a m where
+  resizeAutoYZ :: V2 Double -> m a -> m a
+
 class ResizeAutoX a m where
   resizeAutoX :: Double -> m a -> m a
 
 class ResizeAutoY a m where
   resizeAutoY :: Double -> m a -> m a
+
+class ResizeAutoZ a m where
+  resizeAutoZ :: Double -> m a -> m a
+
+
+-- * 2D
+
+instance MonadNeon m => ResizeAutoX Model2D m where
+  resizeAutoX x modelM = do
+    model <- modelM
+    pure $ Transform2D (Resize2D (x, 0) (Just (False, True))) [model]
+
+instance MonadNeon m => ResizeAutoY Model2D m where
+  resizeAutoY y modelM = do
+    model <- modelM
+    pure $ Transform2D (Resize2D (0, y) (Just (True, False))) [model]
+
+
+-- * 3D
+
+instance MonadNeon m => ResizeAutoXY Model3D m where
+  resizeAutoXY (x, y) modelM = do
+    model <- modelM
+    pure $ Transform3D (Resize3D (x, y, 0) (Just (False, False, True))) [model]
+  
+instance MonadNeon m => ResizeAutoXZ Model3D m where
+  resizeAutoXZ (x, z) modelM = do
+    model <- modelM
+    pure $ Transform3D (Resize3D (x, 0, z) (Just (False, True, False))) [model]
+  
+instance MonadNeon m => ResizeAutoYZ Model3D m where
+  resizeAutoYZ (y, z) modelM = do
+    model <- modelM
+    pure $ Transform3D (Resize3D (0, y, z) (Just (True, False, False))) [model]
+
+instance MonadNeon m => ResizeAutoX Model3D m where
+  resizeAutoX x modelM = do
+    model <- modelM
+    pure $ Transform3D (Resize3D (x, 0, 0) (Just (False, True, True))) [model]
+
+instance MonadNeon m => ResizeAutoY Model3D m where
+  resizeAutoY y modelM = do
+    model <- modelM
+    pure $ Transform3D (Resize3D (0, y, 0) (Just (True, False, True))) [model]
+
+instance MonadNeon m => ResizeAutoZ Model3D m where
+  resizeAutoZ z modelM = do
+    model <- modelM
+    pure $ Transform3D (Resize3D (0, 0, z) (Just (True, True, False))) [model]
+
 
 -------------------------------------------------------------------------------
 -- / Classes / Spin
@@ -236,20 +445,108 @@ class SpinY a m where
 class SpinZ a m where
   spinZ :: Double -> m a -> m a
 
--- TODO
+
+-- * 2D
+
+instance MonadNeon m => SpinZ Model2D m where
+  spinZ z modelM = do
+    model <- modelM
+    pure $ Transform2D (RotateEuler2D (0, 0, z)) [model]
+
+
+-- * 3D
+
+instance MonadNeon m => SpinXYZ Model3D m where
+  spinXYZ (x, y, z) modelM = do
+    model <- modelM
+    pure $ Transform3D (RotateEuler3D (x, y, z)) [model]
+
+instance MonadNeon m => SpinXY Model3D m where
+  spinXY (x, y) modelM = spinXYZ (x, y, 0) modelM
+
+instance MonadNeon m => SpinXZ Model3D m where
+  spinXZ (x, z) modelM = spinXYZ (x, 0, z) modelM
+
+instance MonadNeon m => SpinYZ Model3D m where
+  spinYZ (y, z) modelM = spinXYZ (0, y, z) modelM
+
+instance MonadNeon m => SpinX Model3D m where
+  spinX x modelM = spinXYZ (x, 0, 0) modelM
+
+instance MonadNeon m => SpinY Model3D m where
+  spinY y modelM = spinXYZ (0, y, 0) modelM
+
+instance MonadNeon m => SpinZ Model3D m where
+  spinZ z modelM = spinXYZ (0, 0, z) modelM
 
 -------------------------------------------------------------------------------
 -- / Classes / Mirror
 -------------------------------------------------------------------------------
 
+class MirrorXYZ a m where
+  mirrorXYZ :: V3 Double -> m a -> m a
+
 class MirrorXY a m where
   mirrorXY :: V2 Double -> m a -> m a
+
+class MirrorXZ a m where
+  mirrorXZ :: V2 Double -> m a -> m a
+
+class MirrorYZ a m where
+  mirrorYZ :: V2 Double -> m a -> m a
 
 class MirrorX a m where
   mirrorX :: m a -> m a
 
 class MirrorY a m where
   mirrorY :: m a -> m a
+
+class MirrorZ a m where
+  mirrorZ :: Double -> m a -> m a
+
+
+-- * 2D
+
+instance MonadNeon m => MirrorX Model2D m where
+  mirrorX modelM = do
+    model <- modelM
+    pure $ Transform2D (Mirror2D (0, 1)) [model]
+
+
+instance MonadNeon m => MirrorY Model2D m where
+  mirrorY modelM = do
+    model <- modelM
+    pure $ Transform2D (Mirror2D (1, 0)) [model]
+
+instance MonadNeon m => MirrorXY Model2D m where
+  mirrorXY (x, y) modelM = do
+    model <- modelM
+    pure $ Transform2D (Mirror2D (x, y)) [model]
+
+-- * 3D
+
+instance MonadNeon m => MirrorXYZ Model3D m where
+  mirrorXYZ (x, y, z) modelM = do
+    model <- modelM
+    pure $ Transform3D (Mirror3D (x, y, z)) [model]
+
+instance MonadNeon m => MirrorXY Model3D m where
+  mirrorXY (x, y) modelM = mirrorXYZ (x, y, 0) modelM
+
+instance MonadNeon m => MirrorXZ Model3D m where
+  mirrorXZ (x, z) modelM = mirrorXYZ (x, 0, z) modelM
+
+instance MonadNeon m => MirrorYZ Model3D m where
+  mirrorYZ (y, z) modelM = mirrorXYZ (0, y, z) modelM
+
+instance MonadNeon m => MirrorX Model3D m where
+  mirrorX modelM = mirrorXYZ (1, 0, 0) modelM
+
+instance MonadNeon m => MirrorY Model3D m where
+  mirrorY modelM = mirrorXYZ (0, 1, 0) modelM
+
+instance MonadNeon m => MirrorZ Model3D m where
+  mirrorZ z modelM = mirrorXYZ (0, 0, z) modelM
 
 -------------------------------------------------------------------------------
 -- / Classes / Color
@@ -318,15 +615,6 @@ class Modifiers a m where
   modTransparent :: m a -> m a
 
 -------------------------------------------------------------------------------
--- / 2D / Comment
--------------------------------------------------------------------------------
-
-instance MonadNeon m => Comment Model2D m where
-  comment txt modelM = do
-    model <- modelM
-    pure $ Comment2D txt model
-
--------------------------------------------------------------------------------
 -- / 2D / Modifiers
 -------------------------------------------------------------------------------
 
@@ -386,7 +674,7 @@ instance MonadNeon m => ToModel2D Ellipse m where
     toModel2D (Ellipse {size = (sizeX, sizeY)}) = do
       let diaX = radialToDiameter sizeX
           diaY = radialToDiameter sizeY
-          diaMax = max diaX diaY 
+          diaMax = max diaX diaY
       resizeXY (diaX, diaY) $ circleR diaMax
 
 defaultEllipse :: Ellipse
@@ -577,116 +865,13 @@ text txt opts = do
     }
 
 -------------------------------------------------------------------------------
--- / 2D / Transform / Scale
--------------------------------------------------------------------------------
-
-instance MonadNeon m => ScaleXY Model2D m where
-  scaleXY (x, y) modelM = do
-    model <- modelM
-    pure $ Transform2D Scale2D {scaleVector = (x, y)} [model]
-
-instance MonadNeon m => ScaleX Model2D m where
-  scaleX x modelM = scaleXY (x, 1) modelM
-
-instance MonadNeon m => ScaleY Model2D m where
-  scaleY y modelM = scaleXY (1, y) modelM
-
--------------------------------------------------------------------------------
--- / 2D / Transform / Resize
--------------------------------------------------------------------------------
-
-resize2D :: MonadNeon m => V2 ResizeOp -> m Model2D -> m Model2D
-resize2D (x, y) modelM = do
-  model <- modelM
-  let (valX, autoX) = getValueAndAuto x
-      (valY, autoY) = getValueAndAuto y
-      auto =
-        case (autoX, autoY) of
-          (False, False) -> Nothing
-          _ -> Just (autoX, autoY)
-  pure $ Transform2D Resize2D
-    { resizeNewSize = (valX, valY)
-    , resizeAuto = auto
-    }
-    [model]
-
-instance MonadNeon m => ResizeXY Model2D m where
-  resizeXY (x, y) modelM = resize2D (Set x, Set y) modelM
-
-instance MonadNeon m => ResizeX Model2D m where
-  resizeX x modelM = resize2D (Set x, Keep) modelM
-
-instance MonadNeon m => ResizeY Model2D m where
-  resizeY y modelM = resize2D (Keep, Set y) modelM
-
-instance MonadNeon m => ResizeAutoX Model2D m where
-  resizeAutoX val modelM = resize2D (Set val, Auto) modelM
-
-instance MonadNeon m => ResizeAutoY Model2D m where
-  resizeAutoY val modelM = resize2D (Auto, Set val) modelM
-
--------------------------------------------------------------------------------
--- / 2D / Transform / Spin
--------------------------------------------------------------------------------
-
-instance MonadNeon m => SpinZ Model2D m where
-  spinZ z modelM = do
-    model <- modelM
-    pure $ Transform2D RotateEuler2D
-      { rotateEulerVector  = (0, 0, z)
-      }
-      [model]
-
--------------------------------------------------------------------------------
--- / 2D / Transform / Move
--------------------------------------------------------------------------------
-
-instance MonadNeon m => MoveXYZ Model2D m where
-  moveXYZ v modelM = do
-    model <- modelM
-    pure $ Transform2D (Translate2D v) [model]
-
-instance MonadNeon m => MoveXY Model2D m where
-  moveXY (x, y) modelsM = moveXYZ (x, y, 0) modelsM
-
-instance MonadNeon m => MoveXZ Model2D m where
-  moveXZ (x, z) modelsM = moveXYZ (x, 0, z) modelsM
-
-instance MonadNeon m => MoveYZ Model2D m where
-  moveYZ (y, z) modelsM = moveXYZ (0, y, z) modelsM
-
-instance MonadNeon m => MoveX Model2D m where
-  moveX x modelsM = moveXYZ (x, 0, 0) modelsM
-
-instance MonadNeon m => MoveY Model2D m where
-  moveY y modelsM = moveXYZ (0, y, 0) modelsM
-
-instance MonadNeon m => MoveZ Model2D m where
-  moveZ z modelsM = moveXYZ (0, 0, z) modelsM
-
--------------------------------------------------------------------------------
--- / 2D / Transform / Mirror
--------------------------------------------------------------------------------
-
-instance MonadNeon m => MirrorXY Model2D m where
-  mirrorXY (x, y) modelM = do
-    model <- modelM
-    pure $ Transform2D Mirror2D {mirrorVector = (x, y)} [model]
-
-instance MonadNeon m => MirrorX Model2D m where
-  mirrorX modelM = mirrorXY (1, 0) modelM
-
-instance MonadNeon m => MirrorY Model2D m where
-  mirrorY modelM = mirrorXY (0, 1) modelM
-
--------------------------------------------------------------------------------
 -- / 2D / Transform / Color
 -------------------------------------------------------------------------------
 
 instance MonadNeon m => Color Model2D m where
   color c a modelM = do
     model <- modelM
-    pure $ Transform2D Color2D 
+    pure $ Transform2D Color2D
       { colorColor = c
       , colorAlpha = a
       }
@@ -774,15 +959,6 @@ extrudeWithSpin height modelM = do
     [model]
 
 -------------------------------------------------------------------------------
--- / 3D / Comment
--------------------------------------------------------------------------------
-
-instance MonadNeon m => Comment Model3D m where
-  comment txt modelM = do
-    model <- modelM
-    pure $ Comment3D txt model
-
--------------------------------------------------------------------------------
 -- / 3D / Modifiers
 -------------------------------------------------------------------------------
 
@@ -855,112 +1031,6 @@ cubeCenter size = pure $ Primitive3D $ Cube3D
 
 -------------------------------------------------------------------------------
 -- / 3D / Primitive / Polyhedron
--------------------------------------------------------------------------------
-
--- TODO: Implement
-
--------------------------------------------------------------------------------
--- / 3D / Transform / Scale 
--------------------------------------------------------------------------------
-
-instance MonadNeon m => ScaleXYZ Model3D m where
-  scaleXYZ v modelM = do
-    model <- modelM
-    pure $ Transform3D (Scale3D v) [model]
-
-instance MonadNeon m => ScaleXY Model3D m where
-  scaleXY (x, y) modelM = scaleXYZ (x, y, 1) modelM
-
-instance MonadNeon m => ScaleXZ Model3D m where
-  scaleXZ (x, z) modelM = scaleXYZ (x, 1, z) modelM
-
-instance MonadNeon m => ScaleYZ Model3D m where
-  scaleYZ (y, z) modelM = scaleXYZ (1, y, z) modelM
-
-instance MonadNeon m => ScaleX Model3D m where
-  scaleX x modelM = scaleXYZ (x, 1, 1) modelM
-
-instance MonadNeon m => ScaleY Model3D m where
-  scaleY y modelM = scaleXYZ (1, y, 1) modelM
-
-instance MonadNeon m => ScaleZ Model3D m where
-  scaleZ z modelM = scaleXYZ (1, 1, z) modelM
-
--------------------------------------------------------------------------------
--- / 3D / Transform / Resize
--------------------------------------------------------------------------------
-
-resize3D :: MonadNeon m => V3 ResizeOp -> m Model3D -> m Model3D
-resize3D (x, y, z) modelM = do
-  model <- modelM
-  let (valX, autoX) = getValueAndAuto x
-      (valY, autoY) = getValueAndAuto y
-      (valZ, autoZ) = getValueAndAuto z
-  pure $ Transform3D Resize3D
-    { resizeNewSize = (valX, valY, valZ)
-    , resizeAuto = Just (autoX, autoY, autoZ)
-    }
-    [model]
-
-instance MonadNeon m => ResizeXYZ Model3D m where
-  resizeXYZ (x, y, z) modelM = resize3D (Set x, Set y, Set z) modelM
-
--------------------------------------------------------------------------------
--- / 3D / Transform / Spin
--------------------------------------------------------------------------------
-
-instance MonadNeon m => SpinXYZ Model3D m where
-  spinXYZ (x, y, z) modelM = do
-    model <- modelM
-    pure $ Transform3D (RotateEuler3D (x, y, z)) [model]
-
-instance MonadNeon m => SpinXY Model3D m where
-  spinXY (x, y) modelM = spinXYZ (x, y, 0) modelM
-
-instance MonadNeon m => SpinXZ Model3D m where
-  spinXZ (x, z) modelM = spinXYZ (x, 0, z) modelM
-
-instance MonadNeon m => SpinYZ Model3D m where
-  spinYZ (y, z) modelM = spinXYZ (0, y, z) modelM
-
-instance MonadNeon m => SpinX Model3D m where
-  spinX x modelM = spinXYZ (x, 0, 0) modelM
-
-instance MonadNeon m => SpinY Model3D m where
-  spinY y modelM = spinXYZ (0, y, 0) modelM
-
-instance MonadNeon m => SpinZ Model3D m where
-  spinZ z modelM = spinXYZ (0, 0, z) modelM
-
--------------------------------------------------------------------------------
--- / 3D / Transform / Move
--------------------------------------------------------------------------------
-
-instance MonadNeon m => MoveXYZ Model3D m where
-  moveXYZ v modelM = do
-    model <- modelM
-    pure $ Transform3D (Translate3D v) [model]
-
-instance MonadNeon m => MoveXY Model3D m where
-  moveXY (x, y) modelsM = moveXYZ (x, y, 0) modelsM
-
-instance MonadNeon m => MoveXZ Model3D m where
-  moveXZ (x, z) modelsM = moveXYZ (x, 0, z) modelsM
-
-instance MonadNeon m => MoveYZ Model3D m where
-  moveYZ (y, z) modelsM = moveXYZ (0, y, z) modelsM
-
-instance MonadNeon m => MoveX Model3D m where
-  moveX x modelsM = moveXYZ (x, 0, 0) modelsM
-
-instance MonadNeon m => MoveY Model3D m where
-  moveY y modelsM = moveXYZ (0, y, 0) modelsM
-
-instance MonadNeon m => MoveZ Model3D m where
-  moveZ z modelsM = moveXYZ (0, 0, z) modelsM
-
--------------------------------------------------------------------------------
--- / 3D / Transform / Mirror
 -------------------------------------------------------------------------------
 
 -- TODO: Implement

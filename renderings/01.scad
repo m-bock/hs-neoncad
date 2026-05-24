@@ -73,15 +73,15 @@ union(){
             translate(v=[0, 0, 0])
               square(size=[20, 30]);
             translate(v=[200, 0, 0])
-              resize(newsize=[40, 0])
+              resize(newsize=[40, 1])
                 square(size=[20, 30]);
             translate(v=[400, 0, 0])
-              resize(newsize=[0, 60])
-                resize(newsize=[20, 0])
+              resize(newsize=[1, 60])
+                resize(newsize=[20, 1])
                   square(size=[20, 30]);
             translate(v=[600, 0, 0])
               resize(newsize=[40, 60])
-                resize(newsize=[20, 0])
+                resize(newsize=[20, 1])
                   square(size=[20, 30]);
           }
       translate(v=[0, 1400, 0])
@@ -122,7 +122,7 @@ union(){
             translate(v=[0, 0, 0])
               square(size=[50, 30]);
             translate(v=[200, 0, 0])
-              mirror(v=[1, 0])
+              mirror(v=[0, 1])
                 square(size=[50, 30]);
           }
       translate(v=[0, 1800, 0])
