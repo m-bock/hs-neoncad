@@ -30,7 +30,7 @@ module NeonCAD (
   resizeAutoXY, resizeAutoXZ, resizeAutoYZ, resizeAutoX, resizeAutoY, resizeAutoZ,
   moveXYZ, moveXY, moveXZ, moveYZ, moveX, moveY, moveZ,
   spinXYZ, spinXY, spinXZ, spinYZ, spinX, spinY, spinZ,
-  mirrorXYZ, mirrorXY, mirrorXZ, mirrorX, mirrorY, mirrorZ,
+  mirrorXYZ, mirrorXY, mirrorXZ, mirrorYZ, mirrorX, mirrorY, mirrorZ,
   colorRGB, colorRGBA, color,
   hull,
 
@@ -561,12 +561,54 @@ class ColorRGB a m where
 class ColorRGBA a m where
   colorRGBA :: V3 Double -> Double -> m a -> m a
 
+
+-- * 2D
+
+instance MonadNeon m => ColorRGB Model2D m where
+  colorRGB (r, g, b) modelM = do
+    model <- modelM
+    pure $ Transform2D (Color2D (r, g, b) Nothing) [model]
+
+instance MonadNeon m => ColorRGBA Model2D m where
+  colorRGBA (r, g, b) a modelM = do
+    model <- modelM
+    pure $ Transform2D (Color2D (r, g, b) (Just a)) [model]
+
+
+-- * 3D
+
+instance MonadNeon m => ColorRGB Model3D m where
+  colorRGB (r, g, b) modelM = do
+    model <- modelM
+    pure $ Transform3D (Color3D (r, g, b) Nothing) [model]
+
+instance MonadNeon m => ColorRGBA Model3D m where
+  colorRGBA (r, g, b) a modelM = do
+    model <- modelM
+    pure $ Transform3D (Color3D (r, g, b) (Just a)) [model]
+    
+
 -------------------------------------------------------------------------------
 -- / Classes / Hull
 -------------------------------------------------------------------------------
 
 class Hull a m where
   hull :: m a -> m a
+
+-- * 2D
+
+instance MonadNeon m => Hull Model2D m where
+  hull modelM = do
+    model <- modelM
+    pure $ BoolOp2D Hull2D [model]
+
+
+-- * 3D
+
+instance MonadNeon m => Hull Model3D m where
+  hull modelM = do
+    model <- modelM
+    pure $ BoolOp3D Hull3D [model]
 
 -------------------------------------------------------------------------------
 -- / Classes / Union
@@ -865,25 +907,6 @@ text txt opts = do
     }
 
 -------------------------------------------------------------------------------
--- / 2D / Transform / Color
--------------------------------------------------------------------------------
-
-instance MonadNeon m => Color Model2D m where
-  color c a modelM = do
-    model <- modelM
-    pure $ Transform2D Color2D
-      { colorColor = c
-      , colorAlpha = a
-      }
-      [model]
-
-instance MonadNeon m => ColorRGB Model2D m where
-  colorRGB c modelM = color c Nothing modelM
-
-instance MonadNeon m => ColorRGBA Model2D m where
-  colorRGBA c a modelM = color c (Just a) modelM
-
--------------------------------------------------------------------------------
 -- / 2D / Transform / Offset
 -------------------------------------------------------------------------------
 
@@ -895,15 +918,6 @@ offsetRound = undefined
 
 offsetCut :: (MonadNeon m) => Double -> m Model2D -> m Model2D
 offsetCut = undefined
-
--------------------------------------------------------------------------------
--- / 2D / Transform / Hull
--------------------------------------------------------------------------------
-
-instance MonadNeon m => Hull Model2D m where
-  hull modelM = do
-    model <- modelM
-    pure $ Transform2D Hull2D [model]
 
 -------------------------------------------------------------------------------
 -- / 2D / BoolOp / Union
@@ -1036,19 +1050,6 @@ cubeCenter size = pure $ Primitive3D $ Cube3D
 -- TODO: Implement
 
 -------------------------------------------------------------------------------
--- /3D / Transform / Color
--------------------------------------------------------------------------------
-
-instance MonadNeon m => Color Model3D m where
-  color c a modelM = do
-    model <- modelM
-    pure $ Transform3D Color3D
-      { colorColor = c
-      , colorAlpha = a
-      }
-      [model]
-
--------------------------------------------------------------------------------
 -- / 3D / Transform / Union
 -------------------------------------------------------------------------------
 
@@ -1077,15 +1078,6 @@ instance MonadNeon m => Difference Model3D m where
     modelA <- modelAM
     modelB <- modelBM
     pure $ BoolOp3D Difference3D [modelA, modelB]
-
--------------------------------------------------------------------------------
--- / 3D / Transform / Hull
--------------------------------------------------------------------------------
-
-instance MonadNeon m => Hull Model3D m where
-  hull modelM = do
-    model <- modelM
-    pure $ Transform3D Hull3D [model]
 
 -------------------------------------------------------------------------------
 -- / 2D-3D Conversion

@@ -111,7 +111,6 @@ drawSamples =
           [ rect (50, 30)
           , colorRGB (1, 0, 0) $ rect (50, 30)
           , colorRGBA (1, 0, 0) 0.5 $ rect (50, 30)
-          , color (1, 0, 0) (Just 0.5) $ rect (50, 30)
           ]
     , comment "Text" $
         spreadX

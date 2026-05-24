@@ -137,9 +137,6 @@ union(){
             translate(v=[400, 0, 0])
               color(c=[1, 0, 0], alpha=0.5)
                 square(size=[50, 30]);
-            translate(v=[600, 0, 0])
-              color(c=[1, 0, 0], alpha=0.5)
-                square(size=[50, 30]);
           }
       translate(v=[0, 2000, 0])
         // Text
