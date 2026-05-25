@@ -20,7 +20,7 @@ module NeonCAD (
   rect,
   square,
   polygon,
-  text, defaultTextOpts, TextOpts, FontName, FontStyle,
+  text, str, TextOpts, FontName, FontStyle, fontName, fontStyle, fontSize, direction, hAlign, vAlign, fontSpacing,
 
   offset, offsetRound, offsetCut,
 
@@ -1068,26 +1068,76 @@ polygon optsMay = undefined -- TODO: Implement
 -- / 2D / Primitive / Text
 -------------------------------------------------------------------------------
 
-data TextOpts = TextOpts {
-  textFont      :: FontName,
-  textSize      :: Double,
-  textStyle     :: FontStyle,
-  textDirection :: Direction,
-  textHAlign    :: HorizontalAlignment,
-  textVAlign    :: VerticalAlignment,
-  textSpacing   :: Double
+data TextOpts f = TextOpts {
+  textOptsText :: f String,
+  textOptsFont :: f FontName,
+  textOptsSize :: f Double,
+  textOptsStyle :: f FontStyle,
+  textOptsDirection :: f Direction,
+  textOptsHAlign :: f HorizontalAlignment,
+  textOptsVAlign :: f VerticalAlignment,
+  textOptsSpacing :: f Double
 }
 
-defaultTextOpts :: TextOpts
-defaultTextOpts = TextOpts {
-  textFont      = FNLiberationSans,
-  textSize      = 10,
-  textStyle     = FSRegular,
-  textDirection = LeftToRight,
-  textHAlign    = HALeft,
-  textVAlign    = VABaseline,
-  textSpacing   = 1
-}
+fontName :: FontName -> TextOpts Maybe
+fontName fn = mempty { textOptsFont = Just fn }
+
+fontStyle :: FontStyle -> TextOpts Maybe
+fontStyle fs = mempty { textOptsStyle = Just fs }
+
+fontSize :: Double -> TextOpts Maybe
+fontSize size = mempty { textOptsSize = Just size }
+
+direction :: Direction -> TextOpts Maybe
+direction dir = mempty { textOptsDirection = Just dir }
+
+hAlign :: HorizontalAlignment -> TextOpts Maybe
+hAlign hAlign = mempty { textOptsHAlign = Just hAlign }
+
+vAlign :: VerticalAlignment -> TextOpts Maybe
+vAlign vAlign = mempty { textOptsVAlign = Just vAlign }
+
+fontSpacing :: Double -> TextOpts Maybe
+fontSpacing spacing = mempty { textOptsSpacing = Just spacing }
+
+instance Monoid (TextOpts Maybe) where
+  mempty = TextOpts {
+    textOptsText = Nothing,
+    textOptsFont = Nothing,
+    textOptsSize = Nothing,
+    textOptsStyle = Nothing,
+    textOptsDirection = Nothing,
+    textOptsHAlign = Nothing,
+    textOptsVAlign = Nothing,
+    textOptsSpacing = Nothing
+  }
+
+str :: String -> TextOpts Maybe
+str s = mempty { textOptsText = Just s }
+
+instance Semigroup (TextOpts Maybe) where
+  a <> b = TextOpts {
+    textOptsText = mappendFirst a.textOptsText b.textOptsText,
+    textOptsFont = mappendFirst a.textOptsFont b.textOptsFont,
+    textOptsSize = mappendFirst a.textOptsSize b.textOptsSize,
+    textOptsStyle = mappendFirst a.textOptsStyle b.textOptsStyle,
+    textOptsDirection = mappendFirst a.textOptsDirection b.textOptsDirection,
+    textOptsHAlign = mappendFirst a.textOptsHAlign b.textOptsHAlign,
+    textOptsVAlign = mappendFirst a.textOptsVAlign b.textOptsVAlign,
+    textOptsSpacing = mappendFirst a.textOptsSpacing b.textOptsSpacing
+  }
+
+instance IsOpts TextOpts where
+  getOpts opt = TextOpts {
+    textOptsText = orDef "Hello, World!" opt.textOptsText,
+    textOptsFont = orDef FNLiberationSans opt.textOptsFont,
+    textOptsSize = orDef 10 opt.textOptsSize,
+    textOptsStyle = orDef FSRegular opt.textOptsStyle,
+    textOptsDirection = orDef LeftToRight opt.textOptsDirection,
+    textOptsHAlign = orDef HALeft opt.textOptsHAlign,
+    textOptsVAlign = orDef VABaseline opt.textOptsVAlign,
+    textOptsSpacing = orDef 1 opt.textOptsSpacing
+  }
 
 data FontName
   = FNLiberationMono
@@ -1128,27 +1178,26 @@ mkFont fontName style = case (fontName, style) of
     }
   (Nothing, mayStyle) -> mkFont (Just FNLiberationSans) mayStyle
 
-textWith :: MonadNeon m => String -> TextOpts -> m Model2D
-textWith txt opts = do
+text :: MonadNeon m => TextOpts Maybe -> m Model2D
+text optsMay = do
   facets <- askFacets
   pure $ Primitive2D $ Text2D
-    { textText      = txt
-    , textSize      = spareOpt opts.textSize defaultTextOpts.textSize
-    , textFont      = mkFont
-       (spareOpt opts.textFont defaultTextOpts.textFont)
-       (spareOpt opts.textStyle defaultTextOpts.textStyle)
-    , textDirection = spareOpt opts.textDirection defaultTextOpts.textDirection
-    , textLanguage  = Nothing
-    , textScript    = Nothing
-    , textHAlign    = spareOpt opts.textHAlign defaultTextOpts.textHAlign
-    , textVAlign    = spareOpt opts.textVAlign defaultTextOpts.textVAlign
-    , textSpacing   = spareOpt opts.textSpacing defaultTextOpts.textSpacing
-    , textEm        = Nothing
-    , textFacets    = Just facets
+    { textText = get opts.textOptsText
+    , textSize = fmap get $ spareOpt opts.textOptsSize 10
+    , textFont = mkFont
+        (fmap get $ spareOpt opts.textOptsFont (pure FNLiberationSans))
+        (fmap get $ spareOpt opts.textOptsStyle (pure FSRegular))
+    , textDirection = fmap get $ spareOpt opts.textOptsDirection (pure LeftToRight)
+    , textHAlign = fmap get $ spareOpt opts.textOptsHAlign (pure HALeft)
+    , textVAlign = fmap get $ spareOpt opts.textOptsVAlign (pure VABaseline)
+    , textSpacing = fmap get $ spareOpt opts.textOptsSpacing (pure 1)
+    , textEm = Nothing
+    , textFacets = Just facets
+    , textLanguage = Nothing
+    , textScript = Nothing
     }
-
-text :: MonadNeon m => String -> m Model2D
-text txt = textWith txt defaultTextOpts
+  where
+    opts = getOpts optsMay
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Offset

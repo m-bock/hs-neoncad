@@ -10,7 +10,7 @@ magic ys =
           comment nameY $
             moveY (iy * 210) $
               unions
-                [ moveX (-200) $ scale 2 $ extrudeLinear 2 $ text nameY
+                [ moveX (-200) $ scale 2 $ extrudeLinear 2 $ text $ str nameY
                 , unions (zipWith (\ix it -> moveX (ix * 210) $ magicOne it) [0 ..] xs)
                 ]
       )
@@ -29,12 +29,14 @@ magicOne (name, modelM) =
                       color (rgb white) $
                         moveZ (-1) $
                           extrudeLinear 1 $
-                            squareCenter 200
+                            square $
+                              size 200
                   , comment "Label" $
                       moveXY (-100 + 10, -100 + 10) $
                         color (rgb red) $
                           extrudeLinear 1 $
-                            text name
+                            text $
+                              str name
                   , comment "Axis" $
                       color (rgb red) $
                         unions

@@ -9,7 +9,7 @@ union(){
             text(text="Circle", $fa=6, $fs=0.5);
       union(){
         translate(v=[0, 0, 0])
-          // radius vs diameter
+          // xradius vs diameter
           union()
             translate(v=[0, 0, -5])
               union(){
@@ -24,7 +24,7 @@ union(){
                   translate(v=[-90, -90, 0])
                     color(c=[0.894, 0.341, 0.337], alpha=1)
                       linear_extrude(height=1, convexity=10)
-                        text(text="radius vs diameter", $fa=6, $fs=0.5);
+                        text(text="xradius vs diameter", $fa=6, $fs=0.5);
                   // Axis
                   color(c=[0.894, 0.341, 0.337], alpha=1)
                     union(){
