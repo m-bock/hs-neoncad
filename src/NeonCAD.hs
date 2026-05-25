@@ -9,15 +9,10 @@ module NeonCAD (
 
   diameter, radius,
   facets,
-  placementX, placementY,
-  startX, centerX, endX,
-  startY, centerY, endY,
-  startXY, centerXY, endXY,
-  scaleX, scaleY, scaleZ,
-  scaleXY, scaleXZ, scaleYZ,
-  scaleXYZ,
+  center, corner,
+  scale,
   size,
-  HasSize, HasPlacementX, HasPlacementY,
+  HasSize, HasPlacement,
 
   -- 2D / Primitive
   ellipseR, ellipseD,
@@ -26,6 +21,8 @@ module NeonCAD (
   square, squareCenter,
   polygon,
   text, defaultTextOpts, TextOpts, FontName, FontStyle,
+
+  offset, offsetRound, offsetCut,
 
   -- 3D / Primitive
   box, boxCenter,
@@ -37,7 +34,7 @@ module NeonCAD (
   union, unions,
   intersection, intersections,
   difference,
-  scaleXYZ, scaleXY, scaleXZ, scaleYZ, scaleX, scaleY, scaleZ, scale,
+  scale,
   resizeXYZ, resizeXY, resizeXZ, resizeYZ, resizeX, resizeY, resizeZ,
   resizeAutoXY, resizeAutoXZ, resizeAutoYZ, resizeAutoX, resizeAutoY, resizeAutoZ,
   moveXYZ, moveXY, moveXZ, moveYZ, moveX, moveY, moveZ,
@@ -78,15 +75,8 @@ import OpenSCAD
   )
 
 import Data.Functor.Identity (Identity (runIdentity))
-import Data.Foldable (fold)
 import Data.Monoid (First(..))
 import Data.Maybe (fromMaybe)
-
--------------------------------------------------------------------------------
--- / Types
--------------------------------------------------------------------------------
-
-data Radial = Radius Double | Diameter Double
 
 -------------------------------------------------------------------------------
 -- / Monad
@@ -145,9 +135,6 @@ class (Monad m) => MonadNeon m where
   askFacets :: m Facets
   localFacets :: Facets -> m a -> m a
 
-class ToModel2D a m where
-    toModel2D :: a -> m Model2D
-
 -------------------------------------------------------------------------------
 -- / Classes / IsOpts
 -------------------------------------------------------------------------------
@@ -159,40 +146,16 @@ class (Monoid (a Maybe)) => IsOpts a where
 -- / Classes / HasPlacement
 -------------------------------------------------------------------------------
 
-data Placement = Start | Center | End
+data Placement = PlacementCenter | PlacementCorner
 
-class HasPlacementX a where
-  placementX :: Placement -> a
+class HasPlacement a where
+  placement :: Placement -> a
 
-class HasPlacementY a where
-  placementY :: Placement -> a
+center :: HasPlacement a => a
+center = placement PlacementCenter
 
-startX :: HasPlacementX a => a
-startX = placementX Start
-
-centerX :: HasPlacementX a  => a 
-centerX = placementX Center
-
-endX :: HasPlacementX a => a
-endX = placementX End
-
-startY :: HasPlacementY a => a
-startY = placementY Start
-
-centerY :: HasPlacementY a => a
-centerY = placementY Center
-
-endY :: HasPlacementY a => a
-endY = placementY End
-
-startXY :: HasPlacementX a => HasPlacementY a => Semigroup a => a
-startXY = placementX Start <> placementY Start
-
-centerXY :: HasPlacementX a => HasPlacementY a => Semigroup a => a
-centerXY = placementX Center <> placementY Center
-
-endXY :: HasPlacementX a => HasPlacementY a => Semigroup a => a
-endXY = placementX End <> placementY End
+corner :: HasPlacement a => a
+corner = placement PlacementCorner
 
 -------------------------------------------------------------------------------
 -- / Classes / HasDiameter
@@ -858,32 +821,26 @@ instance HasDiameter (CircleOpts Maybe) where
 instance HasFacets (CircleOpts Maybe) where
   facets v = mempty { circleOptsFacets = Just v }
 
-instance HasPlacementX (CircleOpts Maybe) where
-  placementX v = mempty { circleOptsPlacementX = Just v }
-
-instance HasPlacementY (CircleOpts Maybe) where
-  placementY v = mempty { circleOptsPlacementY = Just v }
+instance HasPlacement (CircleOpts Maybe) where
+  placement v = mempty { circleOptsPlacement = Just v }
 
 data CircleOpts f = CircleOpts {
   circleOptsDiameter   :: f Double,
-  circleOptsPlacementX :: f Placement,
-  circleOptsPlacementY :: f Placement,
+  circleOptsPlacement :: f Placement,
   circleOptsFacets     :: f Int
 }
 
 instance Semigroup (CircleOpts Maybe) where
   a <> b = CircleOpts {
     circleOptsDiameter   = mappendFirst a.circleOptsDiameter   b.circleOptsDiameter,
-    circleOptsPlacementX = mappendFirst a.circleOptsPlacementX b.circleOptsPlacementX,
-    circleOptsPlacementY = mappendFirst a.circleOptsPlacementY b.circleOptsPlacementY,
+    circleOptsPlacement = mappendFirst a.circleOptsPlacement b.circleOptsPlacement,
     circleOptsFacets     = mappendFirst a.circleOptsFacets     b.circleOptsFacets
   }
 
 instance Monoid (CircleOpts Maybe) where
   mempty = CircleOpts {
     circleOptsDiameter   = Nothing,
-    circleOptsPlacementX = Nothing,
-    circleOptsPlacementY = Nothing,
+    circleOptsPlacement = Nothing,
     circleOptsFacets     = Nothing
   }
 
@@ -891,15 +848,14 @@ instance IsOpts CircleOpts where
   getOpts opt =
     CircleOpts {
       circleOptsDiameter   = orDef 100   opt.circleOptsDiameter,
-      circleOptsPlacementX = orDef Center opt.circleOptsPlacementX,
-      circleOptsPlacementY = orDef Center opt.circleOptsPlacementY,
+      circleOptsPlacement = orDef PlacementCenter opt.circleOptsPlacement,
       circleOptsFacets     = orDef 100     opt.circleOptsFacets
     }
 
 circle :: (MonadNeon m) => CircleOpts Maybe -> m Model2D
 circle allOpts = do
   facets <- askFacets
-  pure $ handlePlacementX $ handlePlacementY $ Primitive2D $ Circle2D
+  pure $ handlePlacement $ Primitive2D $ Circle2D
     { circleDiameter = get opts.circleOptsDiameter
     , circleFacets = Just facets
     }
@@ -908,30 +864,11 @@ circle allOpts = do
     opts = getOpts allOpts
 
     r = get opts.circleOptsDiameter / 2
-    
-    handlePlacementX :: Model2D -> Model2D
-    handlePlacementX m = case get opts.circleOptsPlacementX of
-      Center -> m
-      Start -> Transform2D (Translate2D (r, 0, 0)) [m]
-      End -> Transform2D (Translate2D (-r, 0, 0)) [m]
-    
-    handlePlacementY :: Model2D -> Model2D
-    handlePlacementY m = case get opts.circleOptsPlacementY of
-      Center -> m
-      Start -> Transform2D (Translate2D (0, r, 0)) [m]
-      End -> Transform2D (Translate2D (0, -r, 0)) [m]
 
--- circleRWith :: MonadNeon m => Double -> CircleOpts Maybe -> m Model2D
--- circleRWith r opts = circleWith (diameter (r * 2) <> opts)
-
--- circleDWith :: MonadNeon m => Double -> CircleOpts Maybe -> m Model2D
--- circleDWith d opts = circleWith (diameter d <> opts)
-
--- circleR :: MonadNeon m => Double -> m Model2D
--- circleR r = circleRWith r mempty
-
--- circleD :: MonadNeon m => Double -> m Model2D
--- circleD d = circleDWith d mempty
+    handlePlacement :: Model2D -> Model2D
+    handlePlacement m = case get opts.circleOptsPlacement of
+      PlacementCenter -> m
+      PlacementCorner -> Transform2D (Translate2D (r, r, 0)) [m]
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Ellipse
@@ -950,36 +887,29 @@ ellipseD (dx, dy) = undefined
 
 
 data RectOpts f = RectOpts {
-  rectOptsSize       :: f (V2 Double),
-  rectOptsPlacementX :: f Placement,
-  rectOptsPlacementY :: f Placement
+  rectOptsSize      :: f (V2 Double),
+  rectOptsPlacement :: f Placement
 }
 
-instance HasPlacementX (RectOpts Maybe) where
-  placementX v = mempty { rectOptsPlacementX = Just v }
-
-instance HasPlacementY (RectOpts Maybe) where
-  placementY v = mempty { rectOptsPlacementY = Just v }
+instance HasPlacement (RectOpts Maybe) where
+  placement v = mempty { rectOptsPlacement = Just v }
 
 instance Semigroup (RectOpts Maybe) where
   a <> b = RectOpts {
-    rectOptsSize       = mappendFirst a.rectOptsSize       b.rectOptsSize,
-    rectOptsPlacementX = mappendFirst a.rectOptsPlacementX b.rectOptsPlacementX,
-    rectOptsPlacementY = mappendFirst a.rectOptsPlacementY b.rectOptsPlacementY
+    rectOptsSize      = mappendFirst a.rectOptsSize       b.rectOptsSize,
+    rectOptsPlacement = mappendFirst a.rectOptsPlacement b.rectOptsPlacement
   }
 
 instance Monoid (RectOpts Maybe) where
   mempty = RectOpts {
-    rectOptsSize       = Nothing,
-    rectOptsPlacementX = Nothing,
-    rectOptsPlacementY = Nothing
+    rectOptsSize      = Nothing,
+    rectOptsPlacement = Nothing
   }
 
 instance IsOpts RectOpts where
   getOpts opt = RectOpts {
-    rectOptsSize       = orDef (100, 100) opt.rectOptsSize,
-    rectOptsPlacementX = orDef Center     opt.rectOptsPlacementX,
-    rectOptsPlacementY = orDef Center     opt.rectOptsPlacementY
+    rectOptsSize      = orDef (100, 100) opt.rectOptsSize,
+    rectOptsPlacement = orDef PlacementCenter opt.rectOptsPlacement
   }
 
 
@@ -988,66 +918,31 @@ instance HasSize (V2 Double) (RectOpts Maybe) where
 
 
 rect :: MonadNeon m => RectOpts Maybe -> m Model2D
-rect opts = pure $ handlePlacements $ Primitive2D $ Square2D
+rect opts = pure $ Primitive2D $ Square2D
   { squareSize = get opt.rectOptsSize
-  , squareCenter = case (get opt.rectOptsPlacementX, get opt.rectOptsPlacementY) of
-    (Center, Center) -> Just True
-    _ -> Nothing
+  , squareCenter = case get opt.rectOptsPlacement of
+      PlacementCenter -> Just True
+      PlacementCorner -> Nothing
   }
   where
     opt :: RectOpts Identity
     opt = getOpts opts
 
-    (x, y) = get opt.rectOptsSize
-
-    handlePlacements :: Model2D -> Model2D
-    handlePlacements m = case (get opt.rectOptsPlacementX, get opt.rectOptsPlacementY) of
-      (Start, Start) -> m
-      (Center, Center) -> m
-      (px, py) -> 
-        let xd = case px of
-                   Start -> 0
-                   Center -> -x / 2
-                   End -> -x
-            yd = case py of
-                   Start -> 0
-                   Center -> -y / 2
-                   End -> -y
-         in Transform2D (Translate2D (xd, yd, 0)) [m]
-
-    handlePlacementY :: Model2D -> Model2D
-    handlePlacementY m = case get opt.rectOptsPlacementY of
-      Center -> m
-      Start -> m
-      End -> Transform2D (Translate2D (0, -y, 0)) [m]
-
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Square
 -------------------------------------------------------------------------------
 
-data Square = Square {
-  size :: Double,
-  center :: Bool
-}
-
-instance MonadNeon m => ToModel2D Square m where
-  toModel2D (Square {size, center}) = pure $
-    Primitive2D $ Square2D
-      { squareSize   = (size, size)
-      , squareCenter = spareFlag center
-      }
-
-defaultSquare :: Square
-defaultSquare = Square {
-  size = 100,
-  center = False
-}
-
 square :: MonadNeon m => Double -> m Model2D
-square size = toModel2D $ Square { size = size, center = False }
+square size = pure $ Primitive2D $ Square2D
+  { squareSize   = (size, size)
+  , squareCenter = Just False
+  }
 
 squareCenter :: MonadNeon m => Double -> m Model2D
-squareCenter size = toModel2D $ Square { size = size, center = True }
+squareCenter size = pure $ Primitive2D $ Square2D
+  { squareSize   = (size, size)
+  , squareCenter = Just True
+  }
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Polygon
@@ -1070,16 +965,17 @@ defaultPolygon = Polygon {
 defaultConvexity :: Int
 defaultConvexity = 10
 
-instance MonadNeon m => ToModel2D Polygon m where
-  toModel2D (Polygon {points, convexity}) = pure $
-    Primitive2D $ Polygon2D
-      { polygonPoints    = points
-      , polygonPaths     = Nothing
-      , polygonConvexity = Just convexity
-      }
+-- instance MonadNeon m => ToModel2D Polygon m where
+--   toModel2D (Polygon {points, convexity}) = pure $
+--     Primitive2D $ Polygon2D
+--       { polygonPoints    = points
+--       , polygonPaths     = Nothing
+--       , polygonConvexity = Just convexity
+--       }
 
 polygon :: MonadNeon m => [V2 Double] -> m Model2D
-polygon points = toModel2D $ Polygon { points = points, convexity = defaultConvexity }
+polygon points = undefined 
+  --toModel2D $ Polygon { points = points, convexity = defaultConvexity }
 
 
 -------------------------------------------------------------------------------
@@ -1173,7 +1069,12 @@ text txt = textWith txt defaultTextOpts
 -------------------------------------------------------------------------------
 
 offset :: (MonadNeon m) => Double -> m Model2D -> m Model2D
-offset = undefined
+offset d modelM = do
+  model <- modelM
+  pure $ Transform2D (OffsetDelta2D
+    { offsetDeltaDelta = d
+    , offsetDeltaChamfer = Nothing
+    }) [model]
 
 offsetRound :: (MonadNeon m) => Double -> m Model2D -> m Model2D
 offsetRound = undefined
@@ -1349,10 +1250,6 @@ project = undefined
 -------------------------------------------------------------------------------
 -- / Helpers
 -------------------------------------------------------------------------------
-
-radialToDiameter :: Radial -> Double
-radialToDiameter (Radius r)   = r * 2
-radialToDiameter (Diameter d) = d
 
 spareOpt :: Eq a => a -> a -> Maybe a
 spareOpt x y = if x == y then Nothing else Just x

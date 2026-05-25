@@ -43,7 +43,7 @@ magicOne (name, modelM) =
                           , comment "Z" $ boxCenter (1, 1, 200)
                           ]
                   ]
-            , modelM
+            , comment "Model" $ modelM
             ]
       ]
 
@@ -230,13 +230,17 @@ colorize models =
     models
 
 level :: (MonadNeon m) => [m Model2D] -> [m Model3D]
-level models =
-  zipWith
-    ( \i model ->
-        moveZ i $ extrudeLinear 0.8 model
-    )
-    [0 ..]
-    models
+level models = map levelOne models
+
+levelOne :: (MonadNeon m) => m Model2D -> m Model3D
+levelOne model = extrudeLinear 0.8 $ difference (offset 0.5 model) (offset (-0.5) model)
+
+-- zipWith
+--   ( \i model ->
+--       moveZ i $ extrudeLinear 0.8 model
+--   )
+--   [0 ..]
+--   models
 
 info :: (MonadNeon m) => [(String, [(String, m Model3D)])]
 info =
@@ -257,15 +261,8 @@ info =
         , unions $
             colorize $
               level
-                [ circle $ diameter 50 <> startX <> startY
-                , circle $ diameter 50 <> startX <> centerY
-                , circle $ diameter 50 <> startX <> endY
-                , circle $ diameter 50 <> centerX <> startY
-                , circle $ diameter 50 <> centerX <> centerY
-                , circle $ diameter 50 <> centerX <> endY
-                , circle $ diameter 50 <> endX <> startY
-                , circle $ diameter 50 <> endX <> centerY
-                , circle $ diameter 50 <> endX <> endY
+                [ circle $ diameter 50 <> corner
+                , circle $ diameter 50 <> center
                 ]
         )
       ]
@@ -286,15 +283,8 @@ info =
         , unions $
             colorize $
               level
-                [ rect $ size (50, 30) <> startXY
-                , rect $ size (50, 30) <> startX <> centerY
-                , rect $ size (50, 30) <> startX <> endY
-                , rect $ size (50, 30) <> centerX <> startY
-                , rect $ size (50, 30) <> centerX <> centerY
-                , rect $ size (50, 30) <> centerX <> endY
-                , rect $ size (50, 30) <> endX <> startY
-                , rect $ size (50, 30) <> endX <> centerY
-                , rect $ size (50, 30) <> endX <> endY
+                [ rect $ size (50, 30) <> corner
+                , rect $ size (50, 30) <> center
                 ]
         )
       ]
