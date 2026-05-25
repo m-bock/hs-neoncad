@@ -956,7 +956,7 @@ instance Monoid (RectOpts Maybe) where
 
 instance IsOpts RectOpts where
   getOpts opt = RectOpts {
-    rectOptsSize      = orDef (100, 100) opt.rectOptsSize,
+    rectOptsSize      = orDef (125, 90) opt.rectOptsSize,
     rectOptsPlacement = orDef PlacementCenter opt.rectOptsPlacement
   }
 

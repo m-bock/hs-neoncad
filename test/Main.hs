@@ -232,10 +232,10 @@ colorize models =
     models
 
 level :: (MonadNeon m) => [m Model2D] -> [m Model3D]
-level models = map levelOne models
+level models = map to3D models
 
-levelOne :: (MonadNeon m) => m Model2D -> m Model3D
-levelOne model = extrudeLinear 0.8 $ difference (offset 0.5 model) (offset (-0.5) model)
+to3D :: (MonadNeon m) => m Model2D -> m Model3D
+to3D model = extrudeLinear 0.8 $ difference (offset 0.5 model) (offset (-0.5) model)
 
 -- zipWith
 --   ( \i model ->
@@ -250,6 +250,10 @@ info =
     ( "Circle"
     ,
       [
+        ( "Default"
+        , to3D $ circle $ radius 50
+        )
+      ,
         ( "radius vs diameter"
         , unions $
             colorize $
@@ -274,11 +278,11 @@ info =
     ,
       [
         ( "Default"
-        , extrudeLinear 10 $ rect mempty
+        , to3D $ rect mempty
         )
       ,
         ( "Size, (50, 30)"
-        , extrudeLinear 10 $ rect $ size (50, 30)
+        , to3D $ rect $ size (50, 30)
         )
       ,
         ( "placements"
@@ -288,6 +292,26 @@ info =
                 [ rect $ size (50, 30) <> corner
                 , rect $ size (50, 30) <> center
                 ]
+        )
+      ]
+    )
+  ,
+    ( "Square"
+    ,
+      [
+        ( "Default"
+        , to3D $ square mempty
+        )
+      ,
+        ( "Sizes"
+        , unions $ map (\s -> to3D $ square $ size s) [20, 40, 60, 80, 100]
+        )
+      ,
+        ( "placements"
+        , unions $
+            [ to3D $ square $ size 50 <> corner
+            , to3D $ square $ size 50 <> center
+            ]
         )
       ]
     )
