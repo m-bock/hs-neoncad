@@ -2,6 +2,10 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Eta reduce" #-}
 {-# HLINT ignore "Use <$>" #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
 
 module NeonCAD (
   comment,
@@ -77,6 +81,7 @@ import OpenSCAD
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.Monoid (First(..))
 import Data.Maybe (fromMaybe)
+import GHC.Generics (Generic, Generically(..))
 
 -------------------------------------------------------------------------------
 -- / Monad
@@ -139,8 +144,8 @@ class (Monad m) => MonadNeon m where
 -- / Classes / IsOpts
 -------------------------------------------------------------------------------
 
-class (Monoid (a Maybe)) => IsOpts a where
-  getOpts :: a Maybe -> a Identity
+class (Monoid (a First)) => IsOpts a where
+  getOpts :: a First -> a Identity
 
 -------------------------------------------------------------------------------
 -- / Classes / HasPlacement
@@ -607,19 +612,14 @@ instance MonadNeon m => MirrorZ Model3D m where
 data ColorOpts f = ColorOpts {
   colorOptsRgb :: f (V3 Double),
   colorOptsAlpha :: f Double
-}
+} 
+  deriving stock Generic
 
-instance Monoid (ColorOpts Maybe) where
-  mempty = ColorOpts {
-    colorOptsRgb = Nothing,
-    colorOptsAlpha = Nothing
-  }
+deriving via Generically (ColorOpts First)
+  instance Semigroup (ColorOpts First)
 
-instance Semigroup (ColorOpts Maybe) where
-  a <> b = ColorOpts {
-    colorOptsRgb = mappendFirst a.colorOptsRgb b.colorOptsRgb,
-    colorOptsAlpha = mappendFirst a.colorOptsAlpha b.colorOptsAlpha
-  }
+deriving via Generically (ColorOpts First)
+  instance Monoid (ColorOpts First)
 
 instance IsOpts ColorOpts where
   getOpts opt = ColorOpts {
@@ -628,19 +628,13 @@ instance IsOpts ColorOpts where
   }
 
 class Color a m where
-  color :: ColorOpts Maybe -> m a -> m a
+  color :: ColorOpts First -> m a -> m a
 
-rgb :: V3 Double -> ColorOpts Maybe
-rgb rgbValues = ColorOpts {
-  colorOptsRgb = Just rgbValues,
-  colorOptsAlpha = Nothing
-}
+rgb :: V3 Double -> ColorOpts First
+rgb rgbValues = mempty { colorOptsRgb = First $ Just rgbValues }
 
-alpha :: Double -> ColorOpts Maybe
-alpha alphaValue = ColorOpts {
-  colorOptsRgb = Nothing,
-  colorOptsAlpha = Just alphaValue
-}
+alpha :: Double -> ColorOpts First
+alpha alphaValue = mempty { colorOptsAlpha = First $ Just alphaValue }
 
 -- * 2D
 
@@ -842,21 +836,13 @@ data CircleOpts f = CircleOpts {
   circleOptsDiameter   :: f Double,
   circleOptsPlacement :: f Placement,
   circleOptsFacets     :: f Int
-}
+} deriving stock Generic
 
-instance Monoid (CircleOpts Maybe) where
-  mempty = CircleOpts {
-    circleOptsDiameter   = Nothing,
-    circleOptsPlacement = Nothing,
-    circleOptsFacets     = Nothing
-  }
+deriving via Generically (CircleOpts First)
+  instance Semigroup (CircleOpts First)
 
-instance Semigroup (CircleOpts Maybe) where
-  a <> b = CircleOpts {
-    circleOptsDiameter  = mappendFirst a.circleOptsDiameter  b.circleOptsDiameter,
-    circleOptsPlacement = mappendFirst a.circleOptsPlacement b.circleOptsPlacement,
-    circleOptsFacets    = mappendFirst a.circleOptsFacets    b.circleOptsFacets
-  }
+deriving via Generically (CircleOpts First)
+  instance Monoid (CircleOpts First)
 
 instance IsOpts CircleOpts where
   getOpts opt =
@@ -866,17 +852,17 @@ instance IsOpts CircleOpts where
       circleOptsFacets    = orDef 100     opt.circleOptsFacets
     }
 
-instance HasDiameter (CircleOpts Maybe) where
-  diameter v = mempty { circleOptsDiameter = Just v }
+instance HasDiameter (CircleOpts First) where
+  diameter v = mempty { circleOptsDiameter = First $ Just v }
 
-instance HasFacets (CircleOpts Maybe) where
-  facets v = mempty { circleOptsFacets = Just v }
+instance HasFacets (CircleOpts First) where
+  facets v = mempty { circleOptsFacets = First $ Just v }
 
-instance HasPlacement (CircleOpts Maybe) where
-  placement v = mempty { circleOptsPlacement = Just v }
+instance HasPlacement (CircleOpts First) where
+  placement v = mempty { circleOptsPlacement = First $ Just v }
 
 
-circle :: (MonadNeon m) => CircleOpts Maybe -> m Model2D
+circle :: (MonadNeon m) => CircleOpts First -> m Model2D
 circle allOpts = do
   facets <- askFacets
   pure $ handlePlacement $ Primitive2D $ Circle2D
@@ -901,19 +887,14 @@ circle allOpts = do
 data EllipseOpts f = EllipseOpts {
   ellipseOptsSize :: f (V2 Double),
   ellipseOptsPlacement :: f Placement
-}
+} 
+  deriving stock Generic
 
-instance Monoid (EllipseOpts Maybe) where
-  mempty = EllipseOpts {
-    ellipseOptsSize = Nothing,
-    ellipseOptsPlacement = Nothing
-  }
+deriving via Generically (EllipseOpts First)
+  instance Semigroup (EllipseOpts First)
 
-instance Semigroup (EllipseOpts Maybe) where
-  a <> b = EllipseOpts {
-    ellipseOptsSize = mappendFirst a.ellipseOptsSize b.ellipseOptsSize,
-    ellipseOptsPlacement = mappendFirst a.ellipseOptsPlacement b.ellipseOptsPlacement
-  }
+deriving via Generically (EllipseOpts First)
+  instance Monoid (EllipseOpts First)
 
 instance IsOpts EllipseOpts where
   getOpts opt = EllipseOpts {
@@ -921,7 +902,7 @@ instance IsOpts EllipseOpts where
     ellipseOptsPlacement = orDef PlacementCenter opt.ellipseOptsPlacement
   }
 
-ellipse :: MonadNeon m => EllipseOpts Maybe -> m Model2D
+ellipse :: MonadNeon m => EllipseOpts First -> m Model2D
 ellipse optsMay = handlePlacement $ resizeXY (dx, dy) $ circle (diameter (max dx dy))
   where
     (dx, dy) = get opts.ellipseOptsSize
@@ -941,18 +922,13 @@ data RectOpts f = RectOpts {
   rectOptsSize      :: f (V2 Double),
   rectOptsPlacement :: f Placement
 }
+  deriving stock Generic
 
-instance Semigroup (RectOpts Maybe) where
-  a <> b = RectOpts {
-    rectOptsSize      = mappendFirst a.rectOptsSize       b.rectOptsSize,
-    rectOptsPlacement = mappendFirst a.rectOptsPlacement b.rectOptsPlacement
-  }
+deriving via Generically (RectOpts First)
+  instance Semigroup (RectOpts First)
 
-instance Monoid (RectOpts Maybe) where
-  mempty = RectOpts {
-    rectOptsSize      = Nothing,
-    rectOptsPlacement = Nothing
-  }
+deriving via Generically (RectOpts First)
+  instance Monoid (RectOpts First)
 
 instance IsOpts RectOpts where
   getOpts opt = RectOpts {
@@ -960,13 +936,13 @@ instance IsOpts RectOpts where
     rectOptsPlacement = orDef PlacementCenter opt.rectOptsPlacement
   }
 
-instance HasPlacement (RectOpts Maybe) where
-  placement v = mempty { rectOptsPlacement = Just v }
+instance HasPlacement (RectOpts First) where
+  placement v = mempty { rectOptsPlacement = First $ Just v }
 
-instance HasSize (V2 Double) (RectOpts Maybe) where
-  size v = mempty { rectOptsSize = Just v }
+instance HasSize (V2 Double) (RectOpts First) where
+  size v = mempty { rectOptsSize = First $ Just v }
 
-rect :: MonadNeon m => RectOpts Maybe -> m Model2D
+rect :: MonadNeon m => RectOpts First -> m Model2D
 rect opts = pure $ Primitive2D $ Square2D
   { squareSize = get opt.rectOptsSize
   , squareCenter = case get opt.rectOptsPlacement of
@@ -985,18 +961,13 @@ data SquareOpts f = SquareOpts {
   squareOptsSize :: f Double,
   squareOptsPlacement :: f Placement
 }
+  deriving stock Generic
 
-instance Semigroup (SquareOpts Maybe) where
-  a <> b = SquareOpts {
-    squareOptsSize = mappendFirst a.squareOptsSize b.squareOptsSize,
-    squareOptsPlacement = mappendFirst a.squareOptsPlacement b.squareOptsPlacement
-  }
+deriving via Generically (SquareOpts First)
+  instance Semigroup (SquareOpts First)
 
-instance Monoid (SquareOpts Maybe) where
-  mempty = SquareOpts {
-    squareOptsSize = Nothing,
-    squareOptsPlacement = Nothing
-  }
+deriving via Generically (SquareOpts First)
+  instance Monoid (SquareOpts First)
 
 instance IsOpts SquareOpts where
   getOpts opt = SquareOpts {
@@ -1004,13 +975,13 @@ instance IsOpts SquareOpts where
     squareOptsPlacement = orDef PlacementCenter opt.squareOptsPlacement
   }
 
-instance HasSize Double (SquareOpts Maybe) where
-  size v = mempty { squareOptsSize = Just v }
+instance HasSize Double (SquareOpts First) where
+  size v = mempty { squareOptsSize = First $ Just v }
 
-instance HasPlacement (SquareOpts Maybe) where
-  placement v = mempty { squareOptsPlacement = Just v }
+instance HasPlacement (SquareOpts First) where
+  placement v = mempty { squareOptsPlacement = First $ Just v }
 
-square :: MonadNeon m => SquareOpts Maybe -> m Model2D
+square :: MonadNeon m => SquareOpts First -> m Model2D
 square optsMay = pure $ Primitive2D $ Square2D
   { squareSize   = (s, s)
   , squareCenter = case get opts.squareOptsPlacement of
@@ -1032,30 +1003,23 @@ data PolygonOpts f = PolygonOpts {
   polygonOptsPoints :: f [V2 Double],
   polygonOptsConvexity :: f Int,
   polygonOptsPlacement :: f Placement
-}
+} 
+  deriving stock Generic
 
-points :: [V2 Double] -> PolygonOpts Maybe
-points ps = mempty { polygonOptsPoints = Just ps }
+deriving via Generically (PolygonOpts First)
+  instance Semigroup (PolygonOpts First)
 
-convexity :: Int -> PolygonOpts Maybe
-convexity c = mempty { polygonOptsConvexity = Just c }
+deriving via Generically (PolygonOpts First)
+  instance Monoid (PolygonOpts First)
 
-instance HasPlacement (PolygonOpts Maybe) where
-  placement v = mempty { polygonOptsPlacement = Just v }
+points :: [V2 Double] -> PolygonOpts First
+points ps = mempty { polygonOptsPoints = First $ Just ps }
 
-instance Monoid (PolygonOpts Maybe) where
-  mempty = PolygonOpts {
-    polygonOptsPoints = Nothing,
-    polygonOptsConvexity = Nothing,
-    polygonOptsPlacement = Nothing
-  }
+convexity :: Int -> PolygonOpts First
+convexity c = mempty { polygonOptsConvexity = First $ Just c }
 
-instance Semigroup (PolygonOpts Maybe) where
-  a <> b = PolygonOpts {
-    polygonOptsPoints = mappendFirst a.polygonOptsPoints b.polygonOptsPoints,
-    polygonOptsConvexity = mappendFirst a.polygonOptsConvexity b.polygonOptsConvexity,
-    polygonOptsPlacement = mappendFirst a.polygonOptsPlacement b.polygonOptsPlacement
-  }
+instance HasPlacement (PolygonOpts First) where
+  placement v = mempty { polygonOptsPlacement = First $ Just v }
 
 instance IsOpts PolygonOpts where
   getOpts opt = PolygonOpts {
@@ -1077,7 +1041,7 @@ instance IsOpts PolygonOpts where
 defaultConvexity :: Int
 defaultConvexity = 10
 
-polygon :: MonadNeon m => PolygonOpts Maybe -> m Model2D
+polygon :: MonadNeon m => PolygonOpts First -> m Model2D
 polygon optsMay = pure $ Primitive2D $ Polygon2D
   { polygonPoints = get opts.polygonOptsPoints
   , polygonConvexity = Just $ get opts.polygonOptsConvexity
@@ -1099,55 +1063,39 @@ data TextOpts f = TextOpts {
   textOptsHAlign :: f HorizontalAlignment,
   textOptsVAlign :: f VerticalAlignment,
   textOptsSpacing :: f Double
-}
+} 
+  deriving stock Generic
 
-fontName :: FontName -> TextOpts Maybe
-fontName fn = mempty { textOptsFont = Just fn }
+deriving via Generically (TextOpts First)
+  instance Semigroup (TextOpts First)
 
-fontStyle :: FontStyle -> TextOpts Maybe
-fontStyle fs = mempty { textOptsStyle = Just fs }
+deriving via Generically (TextOpts First)
+  instance Monoid (TextOpts First)
 
-fontSize :: Double -> TextOpts Maybe
-fontSize size = mempty { textOptsSize = Just size }
+fontName :: FontName -> TextOpts First
+fontName fn = mempty { textOptsFont = First $ Just fn }
 
-direction :: Direction -> TextOpts Maybe
-direction dir = mempty { textOptsDirection = Just dir }
+fontStyle :: FontStyle -> TextOpts First
+fontStyle fs = mempty { textOptsStyle = First $ Just fs }
 
-hAlign :: HorizontalAlignment -> TextOpts Maybe
-hAlign hAlign = mempty { textOptsHAlign = Just hAlign }
+fontSize :: Double -> TextOpts First
+fontSize size = mempty { textOptsSize = First $ Just size }
 
-vAlign :: VerticalAlignment -> TextOpts Maybe
-vAlign vAlign = mempty { textOptsVAlign = Just vAlign }
+direction :: Direction -> TextOpts First
+direction dir = mempty { textOptsDirection = First $ Just dir }
 
-fontSpacing :: Double -> TextOpts Maybe
-fontSpacing spacing = mempty { textOptsSpacing = Just spacing }
+hAlign :: HorizontalAlignment -> TextOpts First
+hAlign hAlign = mempty { textOptsHAlign = First $ Just hAlign }
 
-instance Monoid (TextOpts Maybe) where
-  mempty = TextOpts {
-    textOptsText = Nothing,
-    textOptsFont = Nothing,
-    textOptsSize = Nothing,
-    textOptsStyle = Nothing,
-    textOptsDirection = Nothing,
-    textOptsHAlign = Nothing,
-    textOptsVAlign = Nothing,
-    textOptsSpacing = Nothing
-  }
+vAlign :: VerticalAlignment -> TextOpts First
+vAlign vAlign = mempty { textOptsVAlign = First $ Just vAlign }
 
-str :: String -> TextOpts Maybe
-str s = mempty { textOptsText = Just s }
+fontSpacing :: Double -> TextOpts First
+fontSpacing spacing = mempty { textOptsSpacing = First $ Just spacing }
 
-instance Semigroup (TextOpts Maybe) where
-  a <> b = TextOpts {
-    textOptsText = mappendFirst a.textOptsText b.textOptsText,
-    textOptsFont = mappendFirst a.textOptsFont b.textOptsFont,
-    textOptsSize = mappendFirst a.textOptsSize b.textOptsSize,
-    textOptsStyle = mappendFirst a.textOptsStyle b.textOptsStyle,
-    textOptsDirection = mappendFirst a.textOptsDirection b.textOptsDirection,
-    textOptsHAlign = mappendFirst a.textOptsHAlign b.textOptsHAlign,
-    textOptsVAlign = mappendFirst a.textOptsVAlign b.textOptsVAlign,
-    textOptsSpacing = mappendFirst a.textOptsSpacing b.textOptsSpacing
-  }
+str :: String -> TextOpts First
+str s = mempty { textOptsText = First $ Just s }
+
 
 instance IsOpts TextOpts where
   getOpts opt = TextOpts {
@@ -1200,7 +1148,7 @@ mkFont fontName style = case (fontName, style) of
     }
   (Nothing, mayStyle) -> mkFont (Just FNLiberationSans) mayStyle
 
-text :: MonadNeon m => TextOpts Maybe -> m Model2D
+text :: MonadNeon m => TextOpts First -> m Model2D
 text optsMay = do
   facets <- askFacets
   pure $ Primitive2D $ Text2D
@@ -1261,19 +1209,14 @@ extrudeWithSpin height modelM = do
 data BoxOpts f = BoxOpts {
   boxOptsSize :: f (V3 Double),
   boxOptsPlacement :: f Placement
-}
+} 
+  deriving stock Generic
 
-instance Semigroup (BoxOpts Maybe) where
-  a <> b = BoxOpts {
-    boxOptsSize = mappendFirst a.boxOptsSize b.boxOptsSize,
-    boxOptsPlacement = mappendFirst a.boxOptsPlacement b.boxOptsPlacement
-  }
+deriving via Generically (BoxOpts First)
+  instance Semigroup (BoxOpts First)
 
-instance Monoid (BoxOpts Maybe) where
-  mempty = BoxOpts {
-    boxOptsSize = Nothing,
-    boxOptsPlacement = Nothing
-  }
+deriving via Generically (BoxOpts First)
+  instance Monoid (BoxOpts First)
 
 instance IsOpts BoxOpts where
   getOpts opt = BoxOpts {
@@ -1281,13 +1224,13 @@ instance IsOpts BoxOpts where
     boxOptsPlacement = orDef PlacementCenter opt.boxOptsPlacement
   }
 
-instance HasSize (V3 Double) (BoxOpts Maybe) where
-  size v = mempty { boxOptsSize = Just v }
+instance HasSize (V3 Double) (BoxOpts First) where
+  size v = mempty { boxOptsSize = First $ Just v }
 
-instance HasPlacement (BoxOpts Maybe) where
-  placement v = mempty { boxOptsPlacement = Just v }
+instance HasPlacement (BoxOpts First) where
+  placement v = mempty { boxOptsPlacement = First $ Just v }
 
-box :: MonadNeon m => BoxOpts Maybe -> m Model3D
+box :: MonadNeon m => BoxOpts First -> m Model3D
 box optsMay = pure $ Primitive3D $ Cube3D
   { cubeSize = get opts.boxOptsSize
   , cubeCenter = case get opts.boxOptsPlacement of
@@ -1441,8 +1384,8 @@ spareOpt x y = if x == y then Nothing else Just x
 spareFlag :: Bool -> Maybe Bool
 spareFlag b = spareOpt b False
 
-orDef :: a -> Maybe a -> Identity a
-orDef def may = pure $ fromMaybe def may
+orDef :: a -> First a -> Identity a
+orDef def opt = pure $ fromMaybe def (getFirst opt)
 
 mappendFirst :: Maybe a -> Maybe a -> Maybe a
 mappendFirst a b = getFirst $ First a <> First b
