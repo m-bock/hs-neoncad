@@ -15,10 +15,10 @@ module NeonCAD (
   HasSize, HasPlacement,
 
   -- 2D / Primitive
-  ellipseR, ellipseD,
+  ellipse,
   circle,
   rect,
-  square, squareCenter,
+  square,
   polygon,
   text, defaultTextOpts, TextOpts, FontName, FontStyle,
 
@@ -40,7 +40,7 @@ module NeonCAD (
   moveXYZ, moveXY, moveXZ, moveYZ, moveX, moveY, moveZ,
   spinXYZ, spinXY, spinXZ, spinYZ, spinX, spinY, spinZ,
   mirrorXYZ, mirrorXY, mirrorXZ, mirrorYZ, mirrorX, mirrorY, mirrorZ,
-  colorRGB, colorRGBA, color, ColorRGBA, ColorRGB,
+  color, rgb, alpha, Color,
   hull,
 
   -- 2D-3D Conversion
@@ -604,41 +604,61 @@ instance MonadNeon m => MirrorZ Model3D m where
 -- / Classes / Color
 -------------------------------------------------------------------------------
 
+data ColorOpts f = ColorOpts {
+  colorOptsRgb :: f (V3 Double),
+  colorOptsAlpha :: f Double
+}
+
+instance Monoid (ColorOpts Maybe) where
+  mempty = ColorOpts {
+    colorOptsRgb = Nothing,
+    colorOptsAlpha = Nothing
+  }
+
+instance Semigroup (ColorOpts Maybe) where
+  a <> b = ColorOpts {
+    colorOptsRgb = mappendFirst a.colorOptsRgb b.colorOptsRgb,
+    colorOptsAlpha = mappendFirst a.colorOptsAlpha b.colorOptsAlpha
+  }
+
+instance IsOpts ColorOpts where
+  getOpts opt = ColorOpts {
+    colorOptsRgb   = orDef (0, 0, 0) opt.colorOptsRgb,
+    colorOptsAlpha = orDef 1         opt.colorOptsAlpha
+  }
+
 class Color a m where
-  color :: V3 Double -> Maybe Double -> m a -> m a
+  color :: ColorOpts Maybe -> m a -> m a
 
-class ColorRGB a m where
-  colorRGB :: V3 Double -> m a -> m a
+rgb :: V3 Double -> ColorOpts Maybe
+rgb rgbValues = ColorOpts {
+  colorOptsRgb = Just rgbValues,
+  colorOptsAlpha = Nothing
+}
 
-class ColorRGBA a m where
-  colorRGBA :: V3 Double -> Double -> m a -> m a
-
+alpha :: Double -> ColorOpts Maybe
+alpha alphaValue = ColorOpts {
+  colorOptsRgb = Nothing,
+  colorOptsAlpha = Just alphaValue
+}
 
 -- * 2D
 
-instance MonadNeon m => ColorRGB Model2D m where
-  colorRGB (r, g, b) modelM = do
+instance MonadNeon m => Color Model2D m where
+  color optsMay modelM = do
     model <- modelM
-    pure $ Transform2D (Color2D (r, g, b) Nothing) [model]
-
-instance MonadNeon m => ColorRGBA Model2D m where
-  colorRGBA (r, g, b) a modelM = do
-    model <- modelM
-    pure $ Transform2D (Color2D (r, g, b) (Just a)) [model]
-
+    pure $ Transform2D (Color2D (get opts.colorOptsRgb) (Just (get opts.colorOptsAlpha))) [model]
+    where
+      opts = getOpts optsMay
 
 -- * 3D
 
-instance MonadNeon m => ColorRGB Model3D m where
-  colorRGB (r, g, b) modelM = do
+instance MonadNeon m => Color Model3D m where
+  color optsMay modelM = do
     model <- modelM
-    pure $ Transform3D (Color3D (r, g, b) Nothing) [model]
-
-instance MonadNeon m => ColorRGBA Model3D m where
-  colorRGBA (r, g, b) a modelM = do
-    model <- modelM
-    pure $ Transform3D (Color3D (r, g, b) (Just a)) [model]
-    
+    pure $ Transform3D (Color3D (get opts.colorOptsRgb) (Just (get opts.colorOptsAlpha))) [model]
+    where
+      opts = getOpts optsMay
 
 -------------------------------------------------------------------------------
 -- / Classes / Hull
@@ -810,10 +830,41 @@ instance MonadNeon m => Modifiers Model3D m where
   modHighlight modelM = do
     model <- modelM
     pure $ Modifier3D ModHighlight model
+  modTransparent modelM = do
+    model <- modelM
+    pure $ Modifier3D ModTransparent model
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Circle
 -------------------------------------------------------------------------------
+
+data CircleOpts f = CircleOpts {
+  circleOptsDiameter   :: f Double,
+  circleOptsPlacement :: f Placement,
+  circleOptsFacets     :: f Int
+}
+
+instance Monoid (CircleOpts Maybe) where
+  mempty = CircleOpts {
+    circleOptsDiameter   = Nothing,
+    circleOptsPlacement = Nothing,
+    circleOptsFacets     = Nothing
+  }
+
+instance Semigroup (CircleOpts Maybe) where
+  a <> b = CircleOpts {
+    circleOptsDiameter  = mappendFirst a.circleOptsDiameter  b.circleOptsDiameter,
+    circleOptsPlacement = mappendFirst a.circleOptsPlacement b.circleOptsPlacement,
+    circleOptsFacets    = mappendFirst a.circleOptsFacets    b.circleOptsFacets
+  }
+
+instance IsOpts CircleOpts where
+  getOpts opt =
+    CircleOpts {
+      circleOptsDiameter  = orDef 100   opt.circleOptsDiameter,
+      circleOptsPlacement = orDef PlacementCenter opt.circleOptsPlacement,
+      circleOptsFacets    = orDef 100     opt.circleOptsFacets
+    }
 
 instance HasDiameter (CircleOpts Maybe) where
   diameter v = mempty { circleOptsDiameter = Just v }
@@ -824,33 +875,6 @@ instance HasFacets (CircleOpts Maybe) where
 instance HasPlacement (CircleOpts Maybe) where
   placement v = mempty { circleOptsPlacement = Just v }
 
-data CircleOpts f = CircleOpts {
-  circleOptsDiameter   :: f Double,
-  circleOptsPlacement :: f Placement,
-  circleOptsFacets     :: f Int
-}
-
-instance Semigroup (CircleOpts Maybe) where
-  a <> b = CircleOpts {
-    circleOptsDiameter   = mappendFirst a.circleOptsDiameter   b.circleOptsDiameter,
-    circleOptsPlacement = mappendFirst a.circleOptsPlacement b.circleOptsPlacement,
-    circleOptsFacets     = mappendFirst a.circleOptsFacets     b.circleOptsFacets
-  }
-
-instance Monoid (CircleOpts Maybe) where
-  mempty = CircleOpts {
-    circleOptsDiameter   = Nothing,
-    circleOptsPlacement = Nothing,
-    circleOptsFacets     = Nothing
-  }
-
-instance IsOpts CircleOpts where
-  getOpts opt =
-    CircleOpts {
-      circleOptsDiameter   = orDef 100   opt.circleOptsDiameter,
-      circleOptsPlacement = orDef PlacementCenter opt.circleOptsPlacement,
-      circleOptsFacets     = orDef 100     opt.circleOptsFacets
-    }
 
 circle :: (MonadNeon m) => CircleOpts Maybe -> m Model2D
 circle allOpts = do
@@ -874,25 +898,49 @@ circle allOpts = do
 -- / 2D / Primitive / Ellipse
 -------------------------------------------------------------------------------
 
-ellipseR :: MonadNeon m => V2 Double -> m Model2D
-ellipseR (rx, ry) = ellipseD (rx * 2, ry * 2)
+data EllipseOpts f = EllipseOpts {
+  ellipseOptsSize :: f (V2 Double),
+  ellipseOptsPlacement :: f Placement
+}
 
-ellipseD :: MonadNeon m => V2 Double -> m Model2D
-ellipseD (dx, dy) = undefined
-  --resizeXY (dx, dy) $ circleR (max dx dy)
+instance Monoid (EllipseOpts Maybe) where
+  mempty = EllipseOpts {
+    ellipseOptsSize = Nothing,
+    ellipseOptsPlacement = Nothing
+  }
+
+instance Semigroup (EllipseOpts Maybe) where
+  a <> b = EllipseOpts {
+    ellipseOptsSize = mappendFirst a.ellipseOptsSize b.ellipseOptsSize,
+    ellipseOptsPlacement = mappendFirst a.ellipseOptsPlacement b.ellipseOptsPlacement
+  }
+
+instance IsOpts EllipseOpts where
+  getOpts opt = EllipseOpts {
+    ellipseOptsSize = orDef (100, 100) opt.ellipseOptsSize,
+    ellipseOptsPlacement = orDef PlacementCenter opt.ellipseOptsPlacement
+  }
+
+ellipse :: MonadNeon m => EllipseOpts Maybe -> m Model2D
+ellipse optsMay = handlePlacement $ resizeXY (dx, dy) $ circle (diameter (max dx dy))
+  where
+    (dx, dy) = get opts.ellipseOptsSize
+
+    handlePlacement :: MonadNeon m => m Model2D -> m Model2D
+    handlePlacement m = case get opts.ellipseOptsPlacement of
+      PlacementCenter -> m
+      PlacementCorner -> moveXY (dx, dy) m
+
+    opts = getOpts optsMay
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Rect
 -------------------------------------------------------------------------------
 
-
 data RectOpts f = RectOpts {
   rectOptsSize      :: f (V2 Double),
   rectOptsPlacement :: f Placement
 }
-
-instance HasPlacement (RectOpts Maybe) where
-  placement v = mempty { rectOptsPlacement = Just v }
 
 instance Semigroup (RectOpts Maybe) where
   a <> b = RectOpts {
@@ -912,10 +960,11 @@ instance IsOpts RectOpts where
     rectOptsPlacement = orDef PlacementCenter opt.rectOptsPlacement
   }
 
+instance HasPlacement (RectOpts Maybe) where
+  placement v = mempty { rectOptsPlacement = Just v }
 
 instance HasSize (V2 Double) (RectOpts Maybe) where
   size v = mempty { rectOptsSize = Just v }
-
 
 rect :: MonadNeon m => RectOpts Maybe -> m Model2D
 rect opts = pure $ Primitive2D $ Square2D
@@ -932,17 +981,45 @@ rect opts = pure $ Primitive2D $ Square2D
 -- / 2D / Primitive / Square
 -------------------------------------------------------------------------------
 
-square :: MonadNeon m => Double -> m Model2D
-square size = pure $ Primitive2D $ Square2D
-  { squareSize   = (size, size)
-  , squareCenter = Just False
+data SquareOpts f = SquareOpts {
+  squareOptsSize :: f Double,
+  squareOptsPlacement :: f Placement
+}
+
+instance Semigroup (SquareOpts Maybe) where
+  a <> b = SquareOpts {
+    squareOptsSize = mappendFirst a.squareOptsSize b.squareOptsSize,
+    squareOptsPlacement = mappendFirst a.squareOptsPlacement b.squareOptsPlacement
   }
 
-squareCenter :: MonadNeon m => Double -> m Model2D
-squareCenter size = pure $ Primitive2D $ Square2D
-  { squareSize   = (size, size)
-  , squareCenter = Just True
+instance Monoid (SquareOpts Maybe) where
+  mempty = SquareOpts {
+    squareOptsSize = Nothing,
+    squareOptsPlacement = Nothing
   }
+
+instance IsOpts SquareOpts where
+  getOpts opt = SquareOpts {
+    squareOptsSize = orDef 100 opt.squareOptsSize,
+    squareOptsPlacement = orDef PlacementCenter opt.squareOptsPlacement
+  }
+
+instance HasSize Double (SquareOpts Maybe) where
+  size v = mempty { squareOptsSize = Just v }
+
+instance HasPlacement (SquareOpts Maybe) where
+  placement v = mempty { squareOptsPlacement = Just v }
+
+square :: MonadNeon m => SquareOpts Maybe -> m Model2D
+square optsMay = pure $ Primitive2D $ Square2D
+  { squareSize   = (s, s)
+  , squareCenter = case get opts.squareOptsPlacement of
+      PlacementCenter -> Just True
+      PlacementCorner -> Nothing
+  }
+  where
+    opts = getOpts optsMay
+    s = get opts.squareOptsSize
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Polygon
@@ -951,32 +1028,41 @@ squareCenter size = pure $ Primitive2D $ Square2D
 -- Paths are not supported yet, because they can be modeled with difference.
 -- Maybe in the future paths can be added for ergonomics if needed.
 
-data Polygon = Polygon {
-  points :: [V2 Double],
-  convexity :: Int
+data PolygonOpts f = PolygonOpts {
+  polygonOptsPoints :: f [V2 Double],
+  polygonOptsConvexity :: f Int,
+  polygonOptsPlacement :: f Placement
 }
 
-defaultPolygon :: Polygon
-defaultPolygon = Polygon {
-    points = [(0, 0), (100, 0), (100, 100), (0, 100)],
-    convexity = defaultConvexity
-}
+instance Monoid (PolygonOpts Maybe) where
+  mempty = PolygonOpts {
+    polygonOptsPoints = Nothing,
+    polygonOptsConvexity = Nothing,
+    polygonOptsPlacement = Nothing
+  }
+
+instance Semigroup (PolygonOpts Maybe) where
+  a <> b = PolygonOpts {
+    polygonOptsPoints = mappendFirst a.polygonOptsPoints b.polygonOptsPoints,
+    polygonOptsConvexity = mappendFirst a.polygonOptsConvexity b.polygonOptsConvexity,
+    polygonOptsPlacement = mappendFirst a.polygonOptsPlacement b.polygonOptsPlacement
+  }
+
+instance IsOpts PolygonOpts where
+  getOpts opt = PolygonOpts {
+    polygonOptsPoints = orDef [(0, 0), (100, 0), (100, 100), (0, 100)] opt.polygonOptsPoints,
+    polygonOptsConvexity = orDef defaultConvexity opt.polygonOptsConvexity,
+    polygonOptsPlacement = orDef PlacementCenter opt.polygonOptsPlacement
+  }
+
 
 defaultConvexity :: Int
 defaultConvexity = 10
 
--- instance MonadNeon m => ToModel2D Polygon m where
---   toModel2D (Polygon {points, convexity}) = pure $
---     Primitive2D $ Polygon2D
---       { polygonPoints    = points
---       , polygonPaths     = Nothing
---       , polygonConvexity = Just convexity
---       }
-
-polygon :: MonadNeon m => [V2 Double] -> m Model2D
-polygon points = undefined 
-  --toModel2D $ Polygon { points = points, convexity = defaultConvexity }
-
+polygon :: MonadNeon m => PolygonOpts Maybe -> m Model2D
+polygon optsMay = undefined -- TODO: Implement
+  where
+    opts = getOpts optsMay
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Text

@@ -26,17 +26,17 @@ magicOne (name, modelM) =
             [ comment "Field" $
                 unions
                   [ comment "Background" $
-                      colorRGBA white 1 $
+                      color (rgb white) $
                         moveZ (-1) $
                           extrudeLinear 1 $
                             squareCenter 200
                   , comment "Label" $
                       moveXY (-100 + 10, -100 + 10) $
-                        colorRGB red $
+                        color (rgb red) $
                           extrudeLinear 1 $
                             text name
                   , comment "Axis" $
-                      colorRGB red $
+                      color (rgb red) $
                         unions
                           [ comment "X" $ boxCenter (1, 200, 1)
                           , comment "Y" $ boxCenter (200, 1, 1)
@@ -86,7 +86,7 @@ drawGridItem :: (MonadNeon m) => Int -> Int -> m Model2D
 drawGridItem x_ y_ =
   moveXY (x * 200, y * 200) $
     unions
-      [ moveZ (-5) $ colorRGB (1, 1, 1) $ rect (size (190, 190)) -- <> centerXY)
+      [ moveZ (-5) $ color (rgb (1, 1, 1)) $ rect (size (190, 190)) -- <> centerXY)
       --   , moveZ (-4) $ colorRGBA (1, 0, 0) 0.5 $ unions [rect centerX, rect $ size (190, 1) <> centerXY]
       ]
  where
@@ -220,11 +220,11 @@ colors =
   , gray
   ]
 
-colorize :: (MonadNeon m, ColorRGBA model m) => [m model] -> [m model]
+colorize :: (MonadNeon m, Color model m) => [m model] -> [m model]
 colorize models =
   zipWith
-    ( \color model ->
-        colorRGBA color 0.7 model
+    ( \c model ->
+        color (rgb c <> alpha 0.7) model
     )
     colors
     models

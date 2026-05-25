@@ -22,11 +22,11 @@ union(){
                         square(size=[200, 200], center=true);
                   // Label
                   translate(v=[-90, -90, 0])
-                    color(c=[0.894, 0.341, 0.337])
+                    color(c=[0.894, 0.341, 0.337], alpha=1)
                       linear_extrude(height=1, convexity=10)
                         text(text="radius vs diameter", $fa=6, $fs=0.5);
                   // Axis
-                  color(c=[0.894, 0.341, 0.337])
+                  color(c=[0.894, 0.341, 0.337], alpha=1)
                     union(){
                       // X
                       cube(size=[1, 200, 1], center=true);
@@ -70,11 +70,11 @@ union(){
                         square(size=[200, 200], center=true);
                   // Label
                   translate(v=[-90, -90, 0])
-                    color(c=[0.894, 0.341, 0.337])
+                    color(c=[0.894, 0.341, 0.337], alpha=1)
                       linear_extrude(height=1, convexity=10)
                         text(text="placements", $fa=6, $fs=0.5);
                   // Axis
-                  color(c=[0.894, 0.341, 0.337])
+                  color(c=[0.894, 0.341, 0.337], alpha=1)
                     union(){
                       // X
                       cube(size=[1, 200, 1], center=true);
@@ -130,11 +130,11 @@ union(){
                         square(size=[200, 200], center=true);
                   // Label
                   translate(v=[-90, -90, 0])
-                    color(c=[0.894, 0.341, 0.337])
+                    color(c=[0.894, 0.341, 0.337], alpha=1)
                       linear_extrude(height=1, convexity=10)
                         text(text="Default", $fa=6, $fs=0.5);
                   // Axis
-                  color(c=[0.894, 0.341, 0.337])
+                  color(c=[0.894, 0.341, 0.337], alpha=1)
                     union(){
                       // X
                       cube(size=[1, 200, 1], center=true);
@@ -162,11 +162,11 @@ union(){
                         square(size=[200, 200], center=true);
                   // Label
                   translate(v=[-90, -90, 0])
-                    color(c=[0.894, 0.341, 0.337])
+                    color(c=[0.894, 0.341, 0.337], alpha=1)
                       linear_extrude(height=1, convexity=10)
                         text(text="Size, (50, 30)", $fa=6, $fs=0.5);
                   // Axis
-                  color(c=[0.894, 0.341, 0.337])
+                  color(c=[0.894, 0.341, 0.337], alpha=1)
                     union(){
                       // X
                       cube(size=[1, 200, 1], center=true);
@@ -194,11 +194,11 @@ union(){
                         square(size=[200, 200], center=true);
                   // Label
                   translate(v=[-90, -90, 0])
-                    color(c=[0.894, 0.341, 0.337])
+                    color(c=[0.894, 0.341, 0.337], alpha=1)
                       linear_extrude(height=1, convexity=10)
                         text(text="placements", $fa=6, $fs=0.5);
                   // Axis
-                  color(c=[0.894, 0.341, 0.337])
+                  color(c=[0.894, 0.341, 0.337], alpha=1)
                     union(){
                       // X
                       cube(size=[1, 200, 1], center=true);
