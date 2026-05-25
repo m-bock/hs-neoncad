@@ -19,13 +19,13 @@ module NeonCAD (
   circle,
   rect,
   square,
-  polygon,
+  polygon, points, convexity,
   text, str, TextOpts, FontName, FontStyle, fontName, fontStyle, fontSize, direction, hAlign, vAlign, fontSpacing,
 
   offset, offsetRound, offsetCut,
 
   -- 3D / Primitive
-  box, boxCenter,
+  box,
   cube, cubeCenter,
 
   empty,
@@ -1034,6 +1034,15 @@ data PolygonOpts f = PolygonOpts {
   polygonOptsPlacement :: f Placement
 }
 
+points :: [V2 Double] -> PolygonOpts Maybe
+points ps = mempty { polygonOptsPoints = Just ps }
+
+convexity :: Int -> PolygonOpts Maybe
+convexity c = mempty { polygonOptsConvexity = Just c }
+
+instance HasPlacement (PolygonOpts Maybe) where
+  placement v = mempty { polygonOptsPlacement = Just v }
+
 instance Monoid (PolygonOpts Maybe) where
   mempty = PolygonOpts {
     polygonOptsPoints = Nothing,
@@ -1050,7 +1059,16 @@ instance Semigroup (PolygonOpts Maybe) where
 
 instance IsOpts PolygonOpts where
   getOpts opt = PolygonOpts {
-    polygonOptsPoints = orDef [(0, 0), (100, 0), (100, 100), (0, 100)] opt.polygonOptsPoints,
+    polygonOptsPoints = orDef
+      [ (-50, -50)
+      , (-10, -40)
+      , ( 30, -50)
+      , ( 50, -10)
+      , ( 10,   0)
+      , ( 50,  50)
+      , (-40,  30)
+      ] 
+  opt.polygonOptsPoints,
     polygonOptsConvexity = orDef defaultConvexity opt.polygonOptsConvexity,
     polygonOptsPlacement = orDef PlacementCenter opt.polygonOptsPlacement
   }
@@ -1060,7 +1078,11 @@ defaultConvexity :: Int
 defaultConvexity = 10
 
 polygon :: MonadNeon m => PolygonOpts Maybe -> m Model2D
-polygon optsMay = undefined -- TODO: Implement
+polygon optsMay = pure $ Primitive2D $ Polygon2D
+  { polygonPoints = get opts.polygonOptsPoints
+  , polygonConvexity = Just $ get opts.polygonOptsConvexity
+  , polygonPaths = Nothing
+  }
   where
     opts = getOpts optsMay
 
@@ -1236,17 +1258,44 @@ extrudeWithSpin height modelM = do
 -- / 3D / Primitive / Box
 -------------------------------------------------------------------------------
 
-box :: MonadNeon m => V3 Double -> m Model3D
-box size = pure $ Primitive3D $ Cube3D
-  { cubeSize = size
-  , cubeCenter = Nothing
+data BoxOpts f = BoxOpts {
+  boxOptsSize :: f (V3 Double),
+  boxOptsPlacement :: f Placement
+}
+
+instance Semigroup (BoxOpts Maybe) where
+  a <> b = BoxOpts {
+    boxOptsSize = mappendFirst a.boxOptsSize b.boxOptsSize,
+    boxOptsPlacement = mappendFirst a.boxOptsPlacement b.boxOptsPlacement
   }
 
-boxCenter :: MonadNeon m => V3 Double -> m Model3D
-boxCenter size = pure $ Primitive3D $ Cube3D
-  { cubeSize = size
-  , cubeCenter = Just True
+instance Monoid (BoxOpts Maybe) where
+  mempty = BoxOpts {
+    boxOptsSize = Nothing,
+    boxOptsPlacement = Nothing
   }
+
+instance IsOpts BoxOpts where
+  getOpts opt = BoxOpts {
+    boxOptsSize = orDef (100, 100, 100) opt.boxOptsSize,
+    boxOptsPlacement = orDef PlacementCenter opt.boxOptsPlacement
+  }
+
+instance HasSize (V3 Double) (BoxOpts Maybe) where
+  size v = mempty { boxOptsSize = Just v }
+
+instance HasPlacement (BoxOpts Maybe) where
+  placement v = mempty { boxOptsPlacement = Just v }
+
+box :: MonadNeon m => BoxOpts Maybe -> m Model3D
+box optsMay = pure $ Primitive3D $ Cube3D
+  { cubeSize = get opts.boxOptsSize
+  , cubeCenter = case get opts.boxOptsPlacement of
+      PlacementCenter -> Just True
+      PlacementCorner -> Nothing
+  }
+  where
+    opts = getOpts optsMay
 
 -------------------------------------------------------------------------------
 -- / 3D / Primitive / Cube

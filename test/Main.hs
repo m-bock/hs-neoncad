@@ -40,9 +40,9 @@ magicOne (name, modelM) =
                   , comment "Axis" $
                       color (rgb red) $
                         unions
-                          [ comment "X" $ boxCenter (1, 200, 1)
-                          , comment "Y" $ boxCenter (200, 1, 1)
-                          , comment "Z" $ boxCenter (1, 1, 200)
+                          [ comment "X" $ box $ size (1, 200, 1)
+                          , comment "Y" $ box $ size (200, 1, 1)
+                          , comment "Z" $ box $ size (1, 1, 200)
                           ]
                   ]
             , comment "Model" $ modelM
@@ -244,8 +244,8 @@ to3D model = extrudeLinear 0.8 $ difference (offset 0.5 model) (offset (-0.5) mo
 --   [0 ..]
 --   models
 
-info :: (MonadNeon m) => [(String, [(String, m Model3D)])]
-info =
+info2D :: (MonadNeon m) => [(String, [(String, m Model3D)])]
+info2D =
   [
     ( "Circle"
     ,
@@ -315,13 +315,59 @@ info =
         )
       ]
     )
+  ,
+    ( "Polygon"
+    ,
+      [
+        ( "Default"
+        , to3D $ polygon mempty
+        )
+      ]
+    )
+  ,
+    ( "Text"
+    ,
+      [
+        ( "Default"
+        , to3D $ text mempty
+        )
+      ]
+    )
   ]
+
+info3D :: (MonadNeon m) => [(String, [(String, m Model3D)])]
+info3D =
+  [
+    ( "Box"
+    ,
+      [
+        ( "Default"
+        , box mempty
+        )
+      ]
+    )
+  ,
+    ( "Cube"
+    ,
+      [
+        ( "Default"
+        , cube 100
+        )
+      ]
+    )
+  ]
+
+world :: (MonadNeon m) => m Model3D
+world =
+  unions
+    [ magic info2D
+    , moveX 1000 $ magic info3D
+    ]
 
 main :: IO ()
 main = do
   writeFile
     "renderings/01.scad"
     ( render3D $
-        runNeonM defaultFacets $
-          (magic info)
+        runNeonM defaultFacets world
     )
