@@ -7,10 +7,22 @@ module NeonCAD (
   comment,
   render2D, render3D,
 
+  diameter, radius,
+  facets,
+  placementX, placementY,
+  startX, centerX, endX,
+  startY, centerY, endY,
+  startXY, centerXY, endXY,
+  scaleX, scaleY, scaleZ,
+  scaleXY, scaleXZ, scaleYZ,
+  scaleXYZ,
+  size,
+  HasSize, HasPlacementX, HasPlacementY,
+
   -- 2D / Primitive
-  circleR, circleD,
   ellipseR, ellipseD,
-  rect, rectCenter,
+  circle,
+  rect,
   square, squareCenter,
   polygon,
   text, defaultTextOpts, TextOpts, FontName, FontStyle,
@@ -25,13 +37,13 @@ module NeonCAD (
   union, unions,
   intersection, intersections,
   difference,
-  scaleXYZ, scaleXY, scaleXZ, scaleYZ, scaleX, scaleY, scaleZ,
+  scaleXYZ, scaleXY, scaleXZ, scaleYZ, scaleX, scaleY, scaleZ, scale,
   resizeXYZ, resizeXY, resizeXZ, resizeYZ, resizeX, resizeY, resizeZ,
   resizeAutoXY, resizeAutoXZ, resizeAutoYZ, resizeAutoX, resizeAutoY, resizeAutoZ,
   moveXYZ, moveXY, moveXZ, moveYZ, moveX, moveY, moveZ,
   spinXYZ, spinXY, spinXZ, spinYZ, spinX, spinY, spinZ,
   mirrorXYZ, mirrorXY, mirrorXZ, mirrorYZ, mirrorX, mirrorY, mirrorZ,
-  colorRGB, colorRGBA, color,
+  colorRGB, colorRGBA, color, ColorRGBA, ColorRGB,
   hull,
 
   -- 2D-3D Conversion
@@ -66,6 +78,9 @@ import OpenSCAD
   )
 
 import Data.Functor.Identity (Identity (runIdentity))
+import Data.Foldable (fold)
+import Data.Monoid (First(..))
+import Data.Maybe (fromMaybe)
 
 -------------------------------------------------------------------------------
 -- / Types
@@ -86,7 +101,7 @@ runNeonT :: Facets -> NeonT m a -> m a
 runNeonT factes (NeonT f) = f factes
 
 runNeonM :: Facets -> NeonM a -> a
-runNeonM facets neon = runIdentity $ runNeonT facets neon
+runNeonM facets neon = get $ runNeonT facets neon
 
 instance (Monad m) => Applicative (NeonT m) where
   pure x = NeonT $ \_ -> pure x
@@ -134,6 +149,76 @@ class ToModel2D a m where
     toModel2D :: a -> m Model2D
 
 -------------------------------------------------------------------------------
+-- / Classes / IsOpts
+-------------------------------------------------------------------------------
+
+class (Monoid (a Maybe)) => IsOpts a where
+  getOpts :: a Maybe -> a Identity
+
+-------------------------------------------------------------------------------
+-- / Classes / HasPlacement
+-------------------------------------------------------------------------------
+
+data Placement = Start | Center | End
+
+class HasPlacementX a where
+  placementX :: Placement -> a
+
+class HasPlacementY a where
+  placementY :: Placement -> a
+
+startX :: HasPlacementX a => a
+startX = placementX Start
+
+centerX :: HasPlacementX a  => a 
+centerX = placementX Center
+
+endX :: HasPlacementX a => a
+endX = placementX End
+
+startY :: HasPlacementY a => a
+startY = placementY Start
+
+centerY :: HasPlacementY a => a
+centerY = placementY Center
+
+endY :: HasPlacementY a => a
+endY = placementY End
+
+startXY :: HasPlacementX a => HasPlacementY a => Semigroup a => a
+startXY = placementX Start <> placementY Start
+
+centerXY :: HasPlacementX a => HasPlacementY a => Semigroup a => a
+centerXY = placementX Center <> placementY Center
+
+endXY :: HasPlacementX a => HasPlacementY a => Semigroup a => a
+endXY = placementX End <> placementY End
+
+-------------------------------------------------------------------------------
+-- / Classes / HasDiameter
+-------------------------------------------------------------------------------
+
+class HasDiameter a where
+  diameter :: Double -> a
+
+radius :: HasDiameter a => Double -> a
+radius r = diameter (r * 2)
+
+-------------------------------------------------------------------------------
+-- / Classes / HasFacets
+-------------------------------------------------------------------------------
+
+class HasFacets a where
+  facets :: Int -> a
+
+-------------------------------------------------------------------------------
+-- / Classes / HasSize
+-------------------------------------------------------------------------------
+
+class HasSize v a | a -> v where
+  size :: v -> a
+
+-------------------------------------------------------------------------------
 -- / Classes / Comment
 -------------------------------------------------------------------------------
 
@@ -175,6 +260,8 @@ class ScaleY a m where
 class ScaleZ a m where
   scaleZ :: Double -> m a -> m a
 
+class Scale a m where
+  scale :: Double -> m a -> m a
 
 -- * 2D
 
@@ -189,6 +276,8 @@ instance MonadNeon m => ScaleX Model2D m where
 instance MonadNeon m => ScaleY Model2D m where
   scaleY y modelM = scaleXY (1, y) modelM
 
+instance MonadNeon m => Scale Model2D m where
+  scale x modelM = scaleXY (x, x) modelM
 
 -- * 3D
 
@@ -211,6 +300,9 @@ instance MonadNeon m => ScaleX Model3D m where
 
 instance MonadNeon m => ScaleY Model3D m where
   scaleY y modelM = scaleXYZ (1, y, 1) modelM
+
+instance MonadNeon m => Scale Model3D m where
+  scale x modelM = scaleXYZ (x, x, x) modelM
 
 -------------------------------------------------------------------------------
 -- / Classes / Move
@@ -236,7 +328,6 @@ class MoveY a m where
 
 class MoveZ a m where
   moveZ :: Double -> m a -> m a
-
 
 -- * 2D
 
@@ -638,6 +729,10 @@ instance MonadNeon m => Union Model3D m where
     modelB <- modelBM
     pure $ BoolOp3D Union3D [modelA, modelB]
 
+  unions modelsM = do
+    models <- sequence modelsM
+    pure $ BoolOp3D Union3D models
+
 -------------------------------------------------------------------------------
 -- / Classes / Empty
 -------------------------------------------------------------------------------
@@ -757,89 +852,174 @@ instance MonadNeon m => Modifiers Model3D m where
 -- / 2D / Primitive / Circle
 -------------------------------------------------------------------------------
 
-data Circle = Circle {
-  size :: Radial
+instance HasDiameter (CircleOpts Maybe) where
+  diameter v = mempty { circleOptsDiameter = Just v }
+
+instance HasFacets (CircleOpts Maybe) where
+  facets v = mempty { circleOptsFacets = Just v }
+
+instance HasPlacementX (CircleOpts Maybe) where
+  placementX v = mempty { circleOptsPlacementX = Just v }
+
+instance HasPlacementY (CircleOpts Maybe) where
+  placementY v = mempty { circleOptsPlacementY = Just v }
+
+data CircleOpts f = CircleOpts {
+  circleOptsDiameter   :: f Double,
+  circleOptsPlacementX :: f Placement,
+  circleOptsPlacementY :: f Placement,
+  circleOptsFacets     :: f Int
 }
 
-instance MonadNeon m => ToModel2D Circle m where
-    toModel2D (Circle {size}) = do
-      facets <- askFacets
-      pure $ Primitive2D $ Circle2D
-        { circleDiameter = radialToDiameter size
-        , circleFacets   = Just facets
-        }
+instance Semigroup (CircleOpts Maybe) where
+  a <> b = CircleOpts {
+    circleOptsDiameter   = mappendFirst a.circleOptsDiameter   b.circleOptsDiameter,
+    circleOptsPlacementX = mappendFirst a.circleOptsPlacementX b.circleOptsPlacementX,
+    circleOptsPlacementY = mappendFirst a.circleOptsPlacementY b.circleOptsPlacementY,
+    circleOptsFacets     = mappendFirst a.circleOptsFacets     b.circleOptsFacets
+  }
 
-defaultCircle :: Circle
-defaultCircle = Circle {
-  size = Diameter 100
-}
+instance Monoid (CircleOpts Maybe) where
+  mempty = CircleOpts {
+    circleOptsDiameter   = Nothing,
+    circleOptsPlacementX = Nothing,
+    circleOptsPlacementY = Nothing,
+    circleOptsFacets     = Nothing
+  }
 
-circle :: MonadNeon m => Radial -> m Model2D
-circle r = toModel2D $ Circle { size = r }
+instance IsOpts CircleOpts where
+  getOpts opt =
+    CircleOpts {
+      circleOptsDiameter   = orDef 100   opt.circleOptsDiameter,
+      circleOptsPlacementX = orDef Center opt.circleOptsPlacementX,
+      circleOptsPlacementY = orDef Center opt.circleOptsPlacementY,
+      circleOptsFacets     = orDef 100     opt.circleOptsFacets
+    }
 
-circleR :: MonadNeon m => Double -> m Model2D
-circleR r = circle (Radius r)
+circle :: (MonadNeon m) => CircleOpts Maybe -> m Model2D
+circle allOpts = do
+  facets <- askFacets
+  pure $ handlePlacementX $ handlePlacementY $ Primitive2D $ Circle2D
+    { circleDiameter = get opts.circleOptsDiameter
+    , circleFacets = Just facets
+    }
+  where
+    opts :: CircleOpts Identity
+    opts = getOpts allOpts
 
-circleD :: MonadNeon m => Double -> m Model2D
-circleD d = circle (Diameter d)
+    r = get opts.circleOptsDiameter / 2
+    
+    handlePlacementX :: Model2D -> Model2D
+    handlePlacementX m = case get opts.circleOptsPlacementX of
+      Center -> m
+      Start -> Transform2D (Translate2D (r, 0, 0)) [m]
+      End -> Transform2D (Translate2D (-r, 0, 0)) [m]
+    
+    handlePlacementY :: Model2D -> Model2D
+    handlePlacementY m = case get opts.circleOptsPlacementY of
+      Center -> m
+      Start -> Transform2D (Translate2D (0, r, 0)) [m]
+      End -> Transform2D (Translate2D (0, -r, 0)) [m]
+
+-- circleRWith :: MonadNeon m => Double -> CircleOpts Maybe -> m Model2D
+-- circleRWith r opts = circleWith (diameter (r * 2) <> opts)
+
+-- circleDWith :: MonadNeon m => Double -> CircleOpts Maybe -> m Model2D
+-- circleDWith d opts = circleWith (diameter d <> opts)
+
+-- circleR :: MonadNeon m => Double -> m Model2D
+-- circleR r = circleRWith r mempty
+
+-- circleD :: MonadNeon m => Double -> m Model2D
+-- circleD d = circleDWith d mempty
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Ellipse
 -------------------------------------------------------------------------------
 
-data Ellipse = Ellipse {
-  size :: V2 Radial
-}
-
-instance MonadNeon m => ToModel2D Ellipse m where
-    toModel2D (Ellipse {size = (sizeX, sizeY)}) = do
-      let diaX = radialToDiameter sizeX
-          diaY = radialToDiameter sizeY
-          diaMax = max diaX diaY
-      resizeXY (diaX, diaY) $ circleR diaMax
-
-defaultEllipse :: Ellipse
-defaultEllipse = Ellipse {
-  size = (Diameter 100, Diameter 100)
-}
-
-ellipse :: MonadNeon m => V2 Radial -> m Model2D
-ellipse size = toModel2D $ Ellipse { size = size }
-
 ellipseR :: MonadNeon m => V2 Double -> m Model2D
-ellipseR (rx, ry) = ellipse (Radius rx, Radius ry)
+ellipseR (rx, ry) = ellipseD (rx * 2, ry * 2)
 
 ellipseD :: MonadNeon m => V2 Double -> m Model2D
-ellipseD (rx, ry) = ellipse (Diameter rx, Diameter ry)
-
+ellipseD (dx, dy) = undefined
+  --resizeXY (dx, dy) $ circleR (max dx dy)
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Rect
 -------------------------------------------------------------------------------
 
-data Rect = Rect {
-  size :: V2 Double,
-  center :: Bool
+
+data RectOpts f = RectOpts {
+  rectOptsSize       :: f (V2 Double),
+  rectOptsPlacementX :: f Placement,
+  rectOptsPlacementY :: f Placement
 }
 
-instance MonadNeon m => ToModel2D Rect m where
-  toModel2D (Rect {size, center}) = pure $
-    Primitive2D $ Square2D
-      { squareSize   = size
-      , squareCenter = spareFlag center
-      }
+instance HasPlacementX (RectOpts Maybe) where
+  placementX v = mempty { rectOptsPlacementX = Just v }
 
-defaultRect :: Rect
-defaultRect = Rect {
-  size = (100, 100),
-  center = False
-}
+instance HasPlacementY (RectOpts Maybe) where
+  placementY v = mempty { rectOptsPlacementY = Just v }
 
-rect :: MonadNeon m => V2 Double -> m Model2D
-rect size = toModel2D $ Rect { size = size, center = False }
+instance Semigroup (RectOpts Maybe) where
+  a <> b = RectOpts {
+    rectOptsSize       = mappendFirst a.rectOptsSize       b.rectOptsSize,
+    rectOptsPlacementX = mappendFirst a.rectOptsPlacementX b.rectOptsPlacementX,
+    rectOptsPlacementY = mappendFirst a.rectOptsPlacementY b.rectOptsPlacementY
+  }
 
-rectCenter :: MonadNeon m => V2 Double -> m Model2D
-rectCenter size = toModel2D $ Rect { size = size, center = True }
+instance Monoid (RectOpts Maybe) where
+  mempty = RectOpts {
+    rectOptsSize       = Nothing,
+    rectOptsPlacementX = Nothing,
+    rectOptsPlacementY = Nothing
+  }
+
+instance IsOpts RectOpts where
+  getOpts opt = RectOpts {
+    rectOptsSize       = orDef (100, 100) opt.rectOptsSize,
+    rectOptsPlacementX = orDef Center     opt.rectOptsPlacementX,
+    rectOptsPlacementY = orDef Center     opt.rectOptsPlacementY
+  }
+
+
+instance HasSize (V2 Double) (RectOpts Maybe) where
+  size v = mempty { rectOptsSize = Just v }
+
+
+rect :: MonadNeon m => RectOpts Maybe -> m Model2D
+rect opts = pure $ handlePlacements $ Primitive2D $ Square2D
+  { squareSize = get opt.rectOptsSize
+  , squareCenter = case (get opt.rectOptsPlacementX, get opt.rectOptsPlacementY) of
+    (Center, Center) -> Just True
+    _ -> Nothing
+  }
+  where
+    opt :: RectOpts Identity
+    opt = getOpts opts
+
+    (x, y) = get opt.rectOptsSize
+
+    handlePlacements :: Model2D -> Model2D
+    handlePlacements m = case (get opt.rectOptsPlacementX, get opt.rectOptsPlacementY) of
+      (Start, Start) -> m
+      (Center, Center) -> m
+      (px, py) -> 
+        let xd = case px of
+                   Start -> 0
+                   Center -> -x / 2
+                   End -> -x
+            yd = case py of
+                   Start -> 0
+                   Center -> -y / 2
+                   End -> -y
+         in Transform2D (Translate2D (xd, yd, 0)) [m]
+
+    handlePlacementY :: Model2D -> Model2D
+    handlePlacementY m = case get opt.rectOptsPlacementY of
+      Center -> m
+      Start -> m
+      End -> Transform2D (Translate2D (0, -y, 0)) [m]
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Square
@@ -966,8 +1146,8 @@ mkFont fontName style = case (fontName, style) of
     }
   (Nothing, mayStyle) -> mkFont (Just FNLiberationSans) mayStyle
 
-text :: MonadNeon m => String -> TextOpts -> m Model2D
-text txt opts = do
+textWith :: MonadNeon m => String -> TextOpts -> m Model2D
+textWith txt opts = do
   facets <- askFacets
   pure $ Primitive2D $ Text2D
     { textText      = txt
@@ -984,6 +1164,9 @@ text txt opts = do
     , textEm        = Nothing
     , textFacets    = Just facets
     }
+
+text :: MonadNeon m => String -> m Model2D
+text txt = textWith txt defaultTextOpts
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Offset
@@ -1080,45 +1263,75 @@ cubeCenter size = pure $ Primitive3D $ Cube3D
 -------------------------------------------------------------------------------
 
 extrudeLinear :: (MonadNeon m) => Double -> m Model2D -> m Model3D
-extrudeLinear height = extrudeLineaWith height noScale noTwist
+extrudeLinear height = extrudeLineaWith height mempty
 
+extrudeLinearCenter :: (MonadNeon m) => Double -> m Model2D -> m Model3D
+extrudeLinearCenter height = extrudeLineaWith height centerExtr
 
-extrudeLineaWith :: (MonadNeon m) => Double -> Scale -> Twist -> m Model2D -> m Model3D
-extrudeLineaWith height scale twist modelM = do
+data ExtrudeLinearOpts = ExtrudeLinearOpts {
+  center :: Bool,
+  scale :: Maybe Double,
+  twist :: Twist
+}
+
+instance Semigroup ExtrudeLinearOpts where
+  a <> b = ExtrudeLinearOpts {
+    center = a.center || b.center,
+    scale = case (a.scale, b.scale) of
+      (Nothing, Nothing) -> Nothing
+      (Just s, Nothing) -> Just s
+      (Nothing, Just s) -> Just s
+      (Just s1, Just s2) -> Just s1,
+    twist = case (a.twist, b.twist) of
+      (NoTwist, NoTwist) -> NoTwist
+      (Twist t o, NoTwist) -> Twist t o
+      (NoTwist, Twist t o) -> Twist t o
+      (Twist t1 o1, Twist t2 o2) -> Twist t1 o1
+   }
+
+instance Monoid ExtrudeLinearOpts where
+  mempty = ExtrudeLinearOpts {
+    center = False,
+    scale = Nothing,
+    twist = NoTwist
+  }
+
+defaultExtrudeLinearOpts :: ExtrudeLinearOpts
+defaultExtrudeLinearOpts = ExtrudeLinearOpts {
+  center = False,
+  scale = Nothing,
+  twist = NoTwist
+}
+
+centerExtr :: ExtrudeLinearOpts
+centerExtr = defaultExtrudeLinearOpts { center = True }
+
+scaleFactor :: Double -> ExtrudeLinearOpts
+scaleFactor s = defaultExtrudeLinearOpts { scale = Just s }
+
+twist :: Double -> ExtrudeLinearOpts
+twist a = defaultExtrudeLinearOpts { twist = Twist a Nothing }
+
+twistWithSlices :: Double -> Int -> ExtrudeLinearOpts
+twistWithSlices a s = defaultExtrudeLinearOpts { twist = Twist a (Just s) }
+
+extrudeLineaWith :: (MonadNeon m) => Double -> ExtrudeLinearOpts -> m Model2D -> m Model3D
+extrudeLineaWith height opts modelM = do
   model <- modelM
   facets <- askFacets
   pure $ Extrude3D (LinearExtrude
     { linearHeight    = height
-    , linearCenter    = Nothing
-    , linearTwist     = case twist of
+    , linearCenter    = if opts.center then Just True else Nothing
+    , linearTwist     = case opts.twist of
         NoTwist -> Nothing
         Twist a _ -> Just a
-    , linearScale     = case scale of
-        NoScale -> Nothing
-        Scale s -> Just s
-    , linearSlices    = case twist of
+    , linearScale     = opts.scale
+    , linearSlices    = case opts.twist of
         Twist _ (Just s) -> Just s
         _ -> Nothing
     , linearConvexity = Just defaultConvexity
     , linearFacets    = Just facets
   }) [model]
-
-data Scale = NoScale | Scale Double
-
-noScale :: Scale
-noScale = NoScale
-
-scale :: Double -> Scale
-scale s = Scale s
-
-noTwist :: Twist
-noTwist = NoTwist
-
-twist :: Double -> Twist
-twist t = Twist t Nothing
-
-twistWithSlices :: Double -> Int -> Twist
-twistWithSlices a s = Twist a (Just s)
 
 data Twist = NoTwist | Twist {
   angle :: Double,
@@ -1147,6 +1360,14 @@ spareOpt x y = if x == y then Nothing else Just x
 spareFlag :: Bool -> Maybe Bool
 spareFlag b = spareOpt b False
 
+orDef :: a -> Maybe a -> Identity a
+orDef def may = pure $ fromMaybe def may
+
+mappendFirst :: Maybe a -> Maybe a -> Maybe a
+mappendFirst a b = getFirst $ First a <> First b
+
+get :: Identity a -> a
+get = runIdentity
 
 -------------------------------------------------------------------------------
 -- / Rendering

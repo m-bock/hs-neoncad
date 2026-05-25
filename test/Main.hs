@@ -2,6 +2,51 @@ module Main (main) where
 
 import NeonCAD
 
+magic :: (MonadNeon m) => [(String, [(String, m Model3D)])] -> m Model3D
+magic ys =
+  unions $
+    zipWith
+      ( \iy (nameY, xs) ->
+          comment nameY $
+            moveY (iy * 210) $
+              unions
+                [ moveX (-200) $ scale 2 $ extrudeLinear 2 $ text nameY
+                , unions (zipWith (\ix it -> moveX (ix * 210) $ magicOne it) [0 ..] xs)
+                ]
+      )
+      [0 ..]
+      ys
+
+magicOne :: (MonadNeon m) => (String, m Model3D) -> m Model3D
+magicOne (name, modelM) =
+  comment name $
+    unions
+      [ moveZ (-5) $
+          unions
+            [ comment "Field" $
+                unions
+                  [ comment "Background" $
+                      colorRGBA white 1 $
+                        moveZ (-1) $
+                          extrudeLinear 1 $
+                            squareCenter 200
+                  , comment "Label" $
+                      moveXY (-100 + 10, -100 + 10) $
+                        colorRGB red $
+                          extrudeLinear 1 $
+                            text name
+                  , comment "Axis" $
+                      colorRGB red $
+                        unions
+                          [ comment "X" $ boxCenter (1, 200, 1)
+                          , comment "Y" $ boxCenter (200, 1, 1)
+                          , comment "Z" $ boxCenter (1, 1, 200)
+                          ]
+                  ]
+            , modelM
+            ]
+      ]
+
 spreadX :: (MonadNeon m) => [m Model2D] -> m Model2D
 spreadX modelsM =
   moveX 100 $
@@ -41,106 +86,226 @@ drawGridItem :: (MonadNeon m) => Int -> Int -> m Model2D
 drawGridItem x_ y_ =
   moveXY (x * 200, y * 200) $
     unions
-      [ moveZ (-5) $ colorRGB (1, 1, 1) $ rectCenter (190, 190)
-      , moveZ (-4) $ colorRGBA (1, 0, 0) 0.5 $ unions [rectCenter (1, 190), rectCenter (190, 1)]
+      [ moveZ (-5) $ colorRGB (1, 1, 1) $ rect (size (190, 190)) -- <> centerXY)
+      --   , moveZ (-4) $ colorRGBA (1, 0, 0) 0.5 $ unions [rect centerX, rect $ size (190, 1) <> centerXY]
       ]
  where
   x = fromIntegral x_
   y = fromIntegral y_
 
-drawSamples :: (MonadNeon m) => m Model2D
-drawSamples =
-  spreadY
-    [ comment "Circle" $
-        spreadX
-          [ comment "circleR" $ circleR 50
-          , comment "circleD" $ circleD 50
-          ]
-    , comment "Ellipse" $
-        spreadX
-          [ ellipseR (50, 30)
-          , ellipseD (50, 30)
-          ]
-    , comment "Rect" $
-        spreadX
-          [ rect (50, 30)
-          , rectCenter (50, 30)
-          ]
-    , comment "Square" $
-        spreadX
-          [ square 50
-          , squareCenter 50
-          ]
-    , comment "Polygon" $
-        spreadX
-          [ polygon [(17, 17), (38, 33), (58, 15), (90, 35), (81, 75), (59, 59), (43, 68), (45, 80), (18, 86), (8, 46), (17, 17)]
-          ]
-    , comment "Scale" $
-        spreadX
-          [ rect (20, 30)
-          , scaleX 2 $ rect (20, 30)
-          , scaleY 2 $ scaleX 2 $ rect (20, 30)
-          , scaleXY (2, 2) $ scaleX 2 $ rect (20, 30)
-          ]
-    , comment "Resize" $
-        spreadX
-          [ rect (20, 30)
-          , resizeX 40 $ rect (20, 30)
-          , resizeY 60 $ resizeX 20 $ rect (20, 30)
-          , resizeXY (40, 60) $ resizeX 20 $ rect (20, 30)
-          ]
-    , comment "Rotate" $
-        spreadX
-          [ rect (50, 30)
-          , spinZ 45 $ rect (50, 30)
-          , spinZ 90 $ rect (50, 30)
-          , spinZ 135 $ rect (50, 30)
-          , spinZ 180 $ rect (50, 30)
-          , spinZ 225 $ rect (50, 30)
-          , spinZ 270 $ rect (50, 30)
-          , spinZ 315 $ rect (50, 30)
-          , spinZ 360 $ rect (50, 30)
-          ]
-    , comment "Mirror" $
-        spreadX
-          [ rect (50, 30)
-          , mirrorX $ rect (50, 30)
-          ]
-    , comment "Color" $
-        spreadX
-          [ rect (50, 30)
-          , colorRGB (1, 0, 0) $ rect (50, 30)
-          , colorRGBA (1, 0, 0) 0.5 $ rect (50, 30)
-          ]
-    , comment "Text" $
-        spreadX
-          [ text "Hello, World!" defaultTextOpts
-          -- , text "Hello, World!" (defaultTextOpts { textFont = FNLiberationMono })
-          -- , text "Hello, World!" (defaultTextOpts { textFont = FNLiberationSans })
-          -- , text "Hello, World!" (defaultTextOpts { textFont = FNLiberationSerif })
-          -- , text "Hello, World!" (defaultTextOpts { textFont = FNCustom "Arial" })
-          ]
-    , -- TODO: offset examples
-      spreadX
-        [ hull $
-            unions
-              [ modHighlight $ moveXY (50, 50) $ squareCenter 50
-              , modHighlight $ circleD 50
-              ]
-        ]
-    , spreadX
-        [ difference
-            (id $ moveXY (50, 50) $ squareCenter 50)
-            (modTransparent $ circleD 100)
-        ]
-    ]
-draw :: (MonadNeon m) => m Model2D
-draw = unions [drawSamples, drawGrid]
+-- drawSamples :: (MonadNeon m) => m Model2D
+-- drawSamples =
+--   spreadY
+--     [ comment "Circle" $
+--         spreadX
+--           [ comment "circleR" $ circle $ diameter 50
+--           , comment "circleD" $ circle $ diameter 50
+--           ]
+--     , comment "Ellipse" $
+--         spreadX
+--           [ ellipseR (50, 30)
+--           , ellipseD (50, 30)
+--           ]
+--     , comment "Rect" $
+--         spreadX
+--           [ rect (centerX)
+--           , rect $ size (50, 30)
+--           ]
+--     , comment "Square" $
+--         spreadX
+--           [ square 50
+--           , squareCenter 50
+--           ]
+--     , comment "Polygon" $
+--         spreadX
+--           [ polygon [(17, 17), (38, 33), (58, 15), (90, 35), (81, 75), (59, 59), (43, 68), (45, 80), (18, 86), (8, 46), (17, 17)]
+--           ]
+--     , comment "Scale" $
+--         spreadX
+--           [ rect $ size (20, 30)
+--           , scaleX 2 $ rect $ size (20, 30)
+--           , scaleY 2 $ scaleX 2 $ rect $ size (20, 30)
+--           , scaleXY (2, 2) $ scaleX 2 $ rect $ size (20, 30)
+--           ]
+--     , comment "Resize" $
+--         spreadX
+--           [ rect $ size (20, 30)
+--           , resizeX 40 $ rect $ size (20, 30)
+--           , resizeY 60 $ resizeX 20 $ rect $ size (20, 30)
+--           , resizeXY (40, 60) $ resizeX 20 $ rect $ size (20, 30)
+--           ]
+--     , comment "Rotate" $
+--         spreadX
+--           [ rect $ size (50, 30)
+--           , spinZ 45 $ rect $ size (50, 30)
+--           , spinZ 90 $ rect $ size (50, 30)
+--           , spinZ 135 $ rect $ size (50, 30)
+--           , spinZ 180 $ rect $ size (50, 30)
+--           , spinZ 225 $ rect $ size (50, 30)
+--           , spinZ 270 $ rect $ size (50, 30)
+--           , spinZ 315 $ rect $ size (50, 30)
+--           , spinZ 360 $ rect $ size (50, 30)
+--           ]
+--     , comment "Mirror" $
+--         spreadX
+--           [ rect $ size (50, 30)
+--           , mirrorX $ rect $ size (50, 30)
+--           ]
+--     , comment "Color" $
+--         spreadX
+--           [ rect $ size (50, 30)
+--           , colorRGB (1, 0, 0) $ rect $ size (50, 30)
+--           , colorRGBA (1, 0, 0) 0.5 $ rect $ size (50, 30)
+--           ]
+--     , comment "Text" $
+--         spreadX
+--           [ text "Hello, World!"
+--           -- , text "Hello, World!" (defaultTextOpts { textFont = FNLiberationMono })
+--           -- , text "Hello, World!" (defaultTextOpts { textFont = FNLiberationSans })
+--           -- , text "Hello, World!" (defaultTextOpts { textFont = FNLiberationSerif })
+--           -- , text "Hello, World!" (defaultTextOpts { textFont = FNCustom "Arial" })
+--           ]
+--     , -- TODO: offset examples
+--       spreadX
+--         [ hull $
+--             unions
+--               [ modHighlight $ moveXY (50, 50) $ squareCenter 50
+--               , modHighlight $ circle (diameter 50)
+--               ]
+--         ]
+--     , spreadX
+--         [ difference
+--             (id $ moveXY (50, 50) $ squareCenter 50)
+--             (modTransparent $ circle (diameter 100))
+--         ]
+--     ]
+
+-- draw :: (MonadNeon m) => m Model2D
+-- draw = unions [drawSamples, drawGrid]
+
+blue = (0.298, 0.471, 0.659)
+orange = (0.961, 0.522, 0.094)
+green = (0.329, 0.635, 0.294)
+red = (0.894, 0.341, 0.337)
+purple = (0.698, 0.475, 0.635)
+teal = (0.447, 0.718, 0.698)
+gray = (0.498, 0.498, 0.498)
+
+brown = (0.616, 0.459, 0.353)
+olive = (0.580, 0.584, 0.192)
+pink = (0.906, 0.541, 0.765)
+cyan = (0.337, 0.706, 0.914)
+gold = (0.855, 0.647, 0.125)
+lime = (0.565, 0.753, 0.263)
+lavender = (0.729, 0.624, 0.859)
+coral = (0.929, 0.490, 0.192)
+
+white = (1, 1, 1)
+
+colors =
+  [ blue
+  , orange
+  , green
+  , red
+  , purple
+  , teal
+  , gold
+  , pink
+  , cyan
+  , brown
+  , lime
+  , coral
+  , lavender
+  , olive
+  , gray
+  ]
+
+colorize :: (MonadNeon m, ColorRGBA model m) => [m model] -> [m model]
+colorize models =
+  zipWith
+    ( \color model ->
+        colorRGBA color 0.7 model
+    )
+    colors
+    models
+
+level :: (MonadNeon m) => [m Model2D] -> [m Model3D]
+level models =
+  zipWith
+    ( \i model ->
+        moveZ i $ extrudeLinear 0.8 model
+    )
+    [0 ..]
+    models
+
+info :: (MonadNeon m) => [(String, [(String, m Model3D)])]
+info =
+  [
+    ( "Circle"
+    ,
+      [
+        ( "radius vs diameter"
+        , unions $
+            colorize $
+              level
+                [ circle $ radius 50
+                , circle $ diameter 50
+                ]
+        )
+      ,
+        ( "placements"
+        , unions $
+            colorize $
+              level
+                [ circle $ diameter 50 <> startX <> startY
+                , circle $ diameter 50 <> startX <> centerY
+                , circle $ diameter 50 <> startX <> endY
+                , circle $ diameter 50 <> centerX <> startY
+                , circle $ diameter 50 <> centerX <> centerY
+                , circle $ diameter 50 <> centerX <> endY
+                , circle $ diameter 50 <> endX <> startY
+                , circle $ diameter 50 <> endX <> centerY
+                , circle $ diameter 50 <> endX <> endY
+                ]
+        )
+      ]
+    )
+  ,
+    ( "Rect"
+    ,
+      [
+        ( "Default"
+        , extrudeLinear 10 $ rect mempty
+        )
+      ,
+        ( "Size, (50, 30)"
+        , extrudeLinear 10 $ rect $ size (50, 30)
+        )
+      ,
+        ( "placements"
+        , unions $
+            colorize $
+              level
+                [ rect $ size (50, 30) <> startXY
+                , rect $ size (50, 30) <> startX <> centerY
+                , rect $ size (50, 30) <> startX <> endY
+                , rect $ size (50, 30) <> centerX <> startY
+                , rect $ size (50, 30) <> centerX <> centerY
+                , rect $ size (50, 30) <> centerX <> endY
+                , rect $ size (50, 30) <> endX <> startY
+                , rect $ size (50, 30) <> endX <> centerY
+                , rect $ size (50, 30) <> endX <> endY
+                ]
+        )
+      ]
+    )
+  ]
 
 main :: IO ()
 main = do
   writeFile
     "renderings/01.scad"
-    ( render2D $
-        runNeonM defaultFacets draw
+    ( render3D $
+        runNeonM defaultFacets $
+          (magic info)
     )
