@@ -386,6 +386,15 @@ info3D =
         )
       ]
     )
+  ,
+    ( "Cylinder"
+    ,
+      [
+        ( "Default"
+        , cylinder mempty
+        )
+      ]
+    )
   ]
 
 world :: (MonadNeon m) => m Model3D

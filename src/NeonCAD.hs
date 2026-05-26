@@ -38,6 +38,7 @@ module NeonCAD (
   cube,
   sphere,
   ellipsoid,
+  cylinder,
 
   empty,
 
@@ -195,6 +196,16 @@ defaultEllipsoidSize =
       a = defaultRatio * b
   in
     (2 * a, 2 * b, 2 * b)
+
+
+defaultCylinderRadius :: Double
+defaultCylinderRadius = (defaultVolume / defaultRatio / pi) ** (1/3)
+
+defaultCylinderDiameter :: Double
+defaultCylinderDiameter = 2 * defaultCylinderRadius
+
+defaultCylinderHeight :: Double
+defaultCylinderHeight = defaultCylinderRadius * defaultRatio 
 
 -------------------------------------------------------------------------------
 -- / Monad
@@ -1401,7 +1412,48 @@ cube optsMay = pure $ Primitive3D $ Cube3D
 -- / 3D / Primitive / Cylinder
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+data CylinderOpts f = CylinderOpts {
+  cylinderOptsHeight    :: f Double,
+  cylinderOptsDiameter  :: f Double,
+  cylinderOptsPlacement :: f Placement,
+  cylinderOptsFacets    :: f Facets
+} 
+  deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
+
+deriving via Generically (CylinderOpts First)
+  instance Semigroup (CylinderOpts First)
+
+deriving via Generically (CylinderOpts First)
+  instance Monoid (CylinderOpts First)
+
+fallbackCylinderOpts :: Facets -> CylinderOpts Identity
+fallbackCylinderOpts fc = CylinderOpts {
+  cylinderOptsHeight    = pure defaultCylinderHeight,
+  cylinderOptsDiameter  = pure defaultCylinderDiameter,
+  cylinderOptsPlacement = pure PlacementCenter,
+  cylinderOptsFacets    = pure fc
+}
+
+cylinder :: MonadNeon m => CylinderOpts First -> m Model3D
+cylinder optsMay = do
+  fc <- askFacets
+  let
+    opts :: CylinderOpts Identity
+    opts = bzipWith orDef (fallbackCylinderOpts fc) optsMay
+  
+    dia = get opts.cylinderOptsDiameter
+  pure $ Primitive3D $ Cylinder3D
+    { cylinderHeight = get opts.cylinderOptsHeight
+    , cylinderCenter = case get opts.cylinderOptsPlacement of
+      PlacementCenter -> Just True
+      PlacementCorner -> Nothing
+    , cylinderDiameter1 = dia
+    , cylinderDiameter2 = dia
+    , cylinderFacets = Just (get opts.cylinderOptsFacets)
+    }
 
 -------------------------------------------------------------------------------
 -- / 3D / Primitive / Sphere
