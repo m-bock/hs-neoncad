@@ -31,6 +31,8 @@ module NeonCAD (
   -- 3D / Primitive
   box,
   cube,
+  sphere,
+  ellipsoid,
 
   empty,
 
@@ -174,6 +176,20 @@ defaultBoxSize =
 defaultCubeSize :: Double
 defaultCubeSize = defaultVolume ** (1/3)
 
+defaultSphereRadius :: Double
+defaultSphereRadius =
+  ((3 * defaultVolume) / (4 * pi)) ** (1 / 3)
+
+defaultSphereDiameter :: Double
+defaultSphereDiameter =
+  2 * defaultSphereRadius
+
+defaultEllipsoidSize :: V3 Double
+defaultEllipsoidSize =
+  let b = ((3 * defaultVolume) / (4 * pi * defaultRatio)) ** (1 / 3)
+      a = defaultRatio * b
+  in
+    (2 * a, 2 * b, 2 * b)
 -------------------------------------------------------------------------------
 -- / Monad
 -------------------------------------------------------------------------------
@@ -261,7 +277,7 @@ radius r = diameter (r * 2)
 -------------------------------------------------------------------------------
 
 class HasFacets a where
-  facets :: Int -> a
+  facets :: Facets -> a
 
 -------------------------------------------------------------------------------
 -- / Classes / HasSize
@@ -919,7 +935,7 @@ instance MonadNeon m => Modifiers Model3D m where
 data CircleOpts f = CircleOpts {
   circleOptsDiameter  :: f Double,
   circleOptsPlacement :: f Placement,
-  circleOptsFacets    :: f Int
+  circleOptsFacets    :: f Facets
 } deriving stock Generic
 
 deriving via Generically (CircleOpts First)
@@ -933,7 +949,7 @@ instance IsOpts CircleOpts where
     CircleOpts {
       circleOptsDiameter  = orDef defaultCircleDiameter opt.circleOptsDiameter,
       circleOptsPlacement = orDef PlacementCenter       opt.circleOptsPlacement,
-      circleOptsFacets    = orDef defaultConvexity      opt.circleOptsFacets
+      circleOptsFacets    = orDef defaultFacets         opt.circleOptsFacets
     }
 
 instance HasDiameter (CircleOpts First) where
@@ -1364,13 +1380,99 @@ cube optsMay = pure $ Primitive3D $ Cube3D
 -- / 3D / Primitive / Sphere
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+data SphereOpts f = SphereOpts {
+  sphereOptsDiameter  :: f Double,
+  sphereOptsPlacement :: f Placement,
+  sphereOptsFacets    :: f Facets
+} 
+  deriving stock Generic
+
+deriving via Generically (SphereOpts First)
+  instance Semigroup (SphereOpts First)
+
+deriving via Generically (SphereOpts First)
+  instance Monoid (SphereOpts First)
+
+instance IsOpts SphereOpts where
+  getOpts opt = SphereOpts {
+    sphereOptsDiameter  = orDef defaultSphereDiameter opt.sphereOptsDiameter,
+    sphereOptsPlacement = orDef PlacementCenter     opt.sphereOptsPlacement,
+    sphereOptsFacets    = orDef defaultFacets       opt.sphereOptsFacets
+  }
+
+instance HasDiameter (SphereOpts First) where
+  diameter v = mempty { sphereOptsDiameter = First $ Just v }
+
+instance HasPlacement (SphereOpts First) where
+  placement v = mempty { sphereOptsPlacement = First $ Just v }
+
+instance HasFacets (SphereOpts First) where
+  facets v = mempty { sphereOptsFacets = First $ Just v }
+
+sphere :: MonadNeon m => SphereOpts First -> m Model3D
+sphere optsMay = handlePlacement $ pure $ Primitive3D $ Sphere3D
+  { sphereDiameter = get opts.sphereOptsDiameter
+  , sphereFacets   = Just (get opts.sphereOptsFacets)
+  }
+  where
+    opts = getOpts optsMay
+
+    d = get opts.sphereOptsDiameter
+    r = d / 2
+
+    handlePlacement :: MonadNeon m => m Model3D -> m Model3D
+    handlePlacement m = case get opts.sphereOptsPlacement of
+      PlacementCenter -> m
+      PlacementCorner -> moveXYZ (r, r, r) m
 
 -------------------------------------------------------------------------------
 -- / 3D / Primitive / Ellipsoid
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+data EllipsoidOpts f = EllipsoidOpts {
+  ellipsoidOptsSize :: f (V3 Double),
+  ellipsoidOptsPlacement :: f Placement,
+  ellipsoidOptsFacets :: f Facets
+} 
+  deriving stock Generic
+
+deriving via Generically (EllipsoidOpts First)
+  instance Semigroup (EllipsoidOpts First)
+  
+deriving via Generically (EllipsoidOpts First)
+  instance Monoid (EllipsoidOpts First)
+
+instance IsOpts EllipsoidOpts where
+  getOpts opt = EllipsoidOpts {
+    ellipsoidOptsSize      = orDef defaultEllipsoidSize opt.ellipsoidOptsSize,
+    ellipsoidOptsPlacement = orDef PlacementCenter opt.ellipsoidOptsPlacement,
+    ellipsoidOptsFacets    = orDef defaultFacets opt.ellipsoidOptsFacets
+  }
+
+instance HasSize (V3 Double) (EllipsoidOpts First) where
+  size v = mempty { ellipsoidOptsSize = First $ Just v }
+
+instance HasPlacement (EllipsoidOpts First) where
+  placement v = mempty { ellipsoidOptsPlacement = First $ Just v }
+
+ellipsoid :: MonadNeon m => EllipsoidOpts First -> m Model3D
+ellipsoid optsMay = handleResize $ handlePlacement $ pure $ Primitive3D $ Sphere3D
+  { sphereDiameter = dmax
+  , sphereFacets = Just (get opts.ellipsoidOptsFacets)
+  }
+  where
+    handleResize :: MonadNeon m => m Model3D -> m Model3D
+    handleResize m = case get opts.ellipsoidOptsSize of
+      (dx, dy, dz) -> resizeXYZ (dx, dy, dz) m
+
+    handlePlacement :: MonadNeon m => m Model3D -> m Model3D
+    handlePlacement m = case get opts.ellipsoidOptsPlacement of
+      PlacementCenter -> m
+      PlacementCorner -> moveXYZ (dx, dy, dz) m
+
+    (dx, dy, dz) = get opts.ellipsoidOptsSize
+    dmax = max (max dx dy) dz
+    opts = getOpts optsMay
 
 -------------------------------------------------------------------------------
 -- / 3D / Primitive / Polyhedron

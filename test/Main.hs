@@ -364,6 +364,24 @@ info3D =
         )
       ]
     )
+  ,
+    ( "Sphere"
+    ,
+      [
+        ( "Default"
+        , sphere mempty
+        )
+      ]
+    )
+  ,
+    ( "Ellipsoid"
+    ,
+      [
+        ( "Default"
+        , ellipsoid mempty
+        )
+      ]
+    )
   ]
 
 world :: (MonadNeon m) => m Model3D

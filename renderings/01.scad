@@ -661,5 +661,86 @@ union(){
                     cube(size=[100, 100, 100], center=true);
                   }
         }
+      // Sphere
+      translate(v=[0, 420, 0])
+        union(){
+          translate(v=[-200, 0, 0])
+            scale(v=[2, 2, 2])
+              linear_extrude(height=2, convexity=10)
+                text(text="Sphere", $fa=6, $fs=0.5);
+          union()
+            translate(v=[0, 0, 0])
+              // Default
+              union()
+                translate(v=[0, 0, -5])
+                  union(){
+                    // Field
+                    union(){
+                      // Background
+                      color(c=[1, 1, 1], alpha=1)
+                        translate(v=[0, 0, -1])
+                          linear_extrude(height=1, convexity=10)
+                            square(size=[200, 200], center=true);
+                      // Label
+                      translate(v=[-90, -90, 0])
+                        color(c=[0.894, 0.341, 0.337], alpha=1)
+                          linear_extrude(height=1, convexity=10)
+                            text(text="Default", $fa=6, $fs=0.5);
+                      // Axis
+                      color(c=[0.894, 0.341, 0.337], alpha=1)
+                        union(){
+                          // X
+                          cube(size=[1, 200, 1], center=true);
+                          // Y
+                          cube(size=[200, 1, 1], center=true);
+                          // Z
+                          cube(size=[1, 1, 200], center=true);
+                        }
+                    }
+                    // Model
+                    sphere(d=124.07009817987998, $fa=6, $fs=0.5);
+                  }
+        }
+      // Ellipsoid
+      translate(v=[0, 630, 0])
+        union(){
+          translate(v=[-200, 0, 0])
+            scale(v=[2, 2, 2])
+              linear_extrude(height=2, convexity=10)
+                text(text="Ellipsoid", $fa=6, $fs=0.5);
+          union()
+            translate(v=[0, 0, 0])
+              // Default
+              union()
+                translate(v=[0, 0, -5])
+                  union(){
+                    // Field
+                    union(){
+                      // Background
+                      color(c=[1, 1, 1], alpha=1)
+                        translate(v=[0, 0, -1])
+                          linear_extrude(height=1, convexity=10)
+                            square(size=[200, 200], center=true);
+                      // Label
+                      translate(v=[-90, -90, 0])
+                        color(c=[0.894, 0.341, 0.337], alpha=1)
+                          linear_extrude(height=1, convexity=10)
+                            text(text="Default", $fa=6, $fs=0.5);
+                      // Axis
+                      color(c=[0.894, 0.341, 0.337], alpha=1)
+                        union(){
+                          // X
+                          cube(size=[1, 200, 1], center=true);
+                          // Y
+                          cube(size=[200, 1, 1], center=true);
+                          // Z
+                          cube(size=[1, 1, 200], center=true);
+                        }
+                    }
+                    // Model
+                    resize(newsize=[169.7255068715288, 106.0784417947055, 106.0784417947055])
+                      sphere(d=169.7255068715288, $fa=6, $fs=0.5);
+                  }
+        }
     }
 }
