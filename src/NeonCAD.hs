@@ -30,7 +30,7 @@ module NeonCAD (
 
   -- 3D / Primitive
   box,
-  cube, cubeCenter,
+  cube,
 
   empty,
 
@@ -84,6 +84,97 @@ import Data.Maybe (fromMaybe)
 import GHC.Generics (Generic, Generically(..))
 
 -------------------------------------------------------------------------------
+-- / Defaults
+-------------------------------------------------------------------------------
+
+defaultFacets :: Facets
+defaultFacets = Facets
+  { fn = Nothing
+  , fa = Just 6
+  , fs = Just 0.5
+  }
+
+defaultConvexity :: Int
+defaultConvexity = 10
+
+-- * 1D
+
+defaultLength :: Double
+defaultLength = 100
+
+defaultRatio :: Double
+defaultRatio = 1.6
+
+-- * 2D
+
+defaultArea :: Double
+defaultArea = 
+  defaultLength * defaultLength
+
+defaultCircleRadius :: Double
+defaultCircleRadius = sqrt (defaultArea / pi)
+
+
+defaultCircleDiameter :: Double
+defaultCircleDiameter = defaultCircleRadius * 2
+
+defaultEllipseSize :: V2 Double
+defaultEllipseSize = 
+  ( 2 * sqrt (defaultArea * defaultRatio / pi)
+  , 2 * sqrt (defaultArea / (defaultRatio * pi))
+  )
+
+defaultRectSize :: V2 Double
+defaultRectSize =
+  ( sqrt (defaultArea * defaultRatio)
+  , sqrt (defaultArea / defaultRatio)
+  )
+
+defaultSquareSize :: Double
+defaultSquareSize = sqrt defaultArea
+
+defaultPolygonPoints :: [V2 Double]
+defaultPolygonPoints = scalePolygonToArea defaultArea
+  [ (-50, -50)
+  , (-10, -40)
+  , ( 30, -50)
+  , ( 50, -10)
+  , ( 10,   0)
+  , ( 50,  50)
+  , (-40,  30)
+  ] 
+
+scalePolygonToArea :: Double -> [V2 Double] -> [V2 Double]
+scalePolygonToArea targetArea ps =
+  map scalePoint ps
+  where
+    currentArea = polygonArea ps
+    s = sqrt (targetArea / currentArea)
+
+    scalePoint (x, y) = (x * s, y * s)
+
+polygonArea :: [V2 Double] -> Double
+polygonArea ps =
+  abs (sum (zipWith cross ps (tail (cycle ps)))) / 2
+  where
+    cross (x1, y1) (x2, y2) = x1 * y2 - y1 * x2
+
+-- * 3D
+
+defaultVolume :: Double
+defaultVolume = defaultArea * defaultLength
+
+defaultBoxSize :: V3 Double
+defaultBoxSize =
+  ( defaultVolume ** (1/3) * defaultRatio ** (2/3)
+  , defaultVolume ** (1/3) /  defaultRatio ** (1/3)
+  , defaultVolume ** (1/3) /  defaultRatio ** (1/3)
+  )
+
+defaultCubeSize :: Double
+defaultCubeSize = defaultVolume ** (1/3)
+
+-------------------------------------------------------------------------------
 -- / Monad
 -------------------------------------------------------------------------------
 
@@ -124,13 +215,6 @@ fa d = mempty { fa = Just d }
 
 fs :: Double -> Facets
 fs d = mempty { fs = Just d }
-
-defaultFacets :: Facets
-defaultFacets = Facets
-  { fn = Nothing
-  , fa = Just 6
-  , fs = Just 0.5
-  }
 
 -------------------------------------------------------------------------------
 -- / Classes
@@ -833,9 +917,9 @@ instance MonadNeon m => Modifiers Model3D m where
 -------------------------------------------------------------------------------
 
 data CircleOpts f = CircleOpts {
-  circleOptsDiameter   :: f Double,
+  circleOptsDiameter  :: f Double,
   circleOptsPlacement :: f Placement,
-  circleOptsFacets     :: f Int
+  circleOptsFacets    :: f Int
 } deriving stock Generic
 
 deriving via Generically (CircleOpts First)
@@ -847,9 +931,9 @@ deriving via Generically (CircleOpts First)
 instance IsOpts CircleOpts where
   getOpts opt =
     CircleOpts {
-      circleOptsDiameter  = orDef 100   opt.circleOptsDiameter,
-      circleOptsPlacement = orDef PlacementCenter opt.circleOptsPlacement,
-      circleOptsFacets    = orDef 100     opt.circleOptsFacets
+      circleOptsDiameter  = orDef defaultCircleDiameter opt.circleOptsDiameter,
+      circleOptsPlacement = orDef PlacementCenter       opt.circleOptsPlacement,
+      circleOptsFacets    = orDef defaultConvexity      opt.circleOptsFacets
     }
 
 instance HasDiameter (CircleOpts First) where
@@ -864,10 +948,10 @@ instance HasPlacement (CircleOpts First) where
 
 circle :: (MonadNeon m) => CircleOpts First -> m Model2D
 circle allOpts = do
-  facets <- askFacets
+  fc <- askFacets
   pure $ handlePlacement $ Primitive2D $ Circle2D
     { circleDiameter = get opts.circleOptsDiameter
-    , circleFacets = Just facets
+    , circleFacets   = Just fc
     }
   where
     opts :: CircleOpts Identity
@@ -898,7 +982,7 @@ deriving via Generically (EllipseOpts First)
 
 instance IsOpts EllipseOpts where
   getOpts opt = EllipseOpts {
-    ellipseOptsSize = orDef (100, 100) opt.ellipseOptsSize,
+    ellipseOptsSize      = orDef defaultEllipseSize opt.ellipseOptsSize,
     ellipseOptsPlacement = orDef PlacementCenter opt.ellipseOptsPlacement
   }
 
@@ -932,7 +1016,7 @@ deriving via Generically (RectOpts First)
 
 instance IsOpts RectOpts where
   getOpts opt = RectOpts {
-    rectOptsSize      = orDef (125, 90) opt.rectOptsSize,
+    rectOptsSize      = orDef defaultRectSize opt.rectOptsSize,
     rectOptsPlacement = orDef PlacementCenter opt.rectOptsPlacement
   }
 
@@ -971,7 +1055,7 @@ deriving via Generically (SquareOpts First)
 
 instance IsOpts SquareOpts where
   getOpts opt = SquareOpts {
-    squareOptsSize = orDef 100 opt.squareOptsSize,
+    squareOptsSize = orDef defaultSquareSize opt.squareOptsSize,
     squareOptsPlacement = orDef PlacementCenter opt.squareOptsPlacement
   }
 
@@ -1023,23 +1107,10 @@ instance HasPlacement (PolygonOpts First) where
 
 instance IsOpts PolygonOpts where
   getOpts opt = PolygonOpts {
-    polygonOptsPoints = orDef
-      [ (-50, -50)
-      , (-10, -40)
-      , ( 30, -50)
-      , ( 50, -10)
-      , ( 10,   0)
-      , ( 50,  50)
-      , (-40,  30)
-      ] 
-  opt.polygonOptsPoints,
+    polygonOptsPoints = orDef defaultPolygonPoints opt.polygonOptsPoints,
     polygonOptsConvexity = orDef defaultConvexity opt.polygonOptsConvexity,
     polygonOptsPlacement = orDef PlacementCenter opt.polygonOptsPlacement
   }
-
-
-defaultConvexity :: Int
-defaultConvexity = 10
 
 polygon :: MonadNeon m => PolygonOpts First -> m Model2D
 polygon optsMay = pure $ Primitive2D $ Polygon2D
@@ -1220,7 +1291,7 @@ deriving via Generically (BoxOpts First)
 
 instance IsOpts BoxOpts where
   getOpts opt = BoxOpts {
-    boxOptsSize = orDef (100, 100, 100) opt.boxOptsSize,
+    boxOptsSize      = orDef defaultBoxSize opt.boxOptsSize,
     boxOptsPlacement = orDef PlacementCenter opt.boxOptsPlacement
   }
 
@@ -1244,17 +1315,38 @@ box optsMay = pure $ Primitive3D $ Cube3D
 -- / 3D / Primitive / Cube
 -------------------------------------------------------------------------------
 
-cube :: MonadNeon m => Double -> m Model3D
-cube size = pure $ Primitive3D $ Cube3D
-  { cubeSize = (size, size, size)
-  , cubeCenter = Nothing
+data CubeOpts f = CubeOpts {
+  cubeOptsSize :: f Double,
+  cubeOptsPlacement :: f Placement
+} 
+  deriving stock Generic
+
+deriving via Generically (CubeOpts First)
+  instance Semigroup (CubeOpts First)
+
+deriving via Generically (CubeOpts First)
+  instance Monoid (CubeOpts First)
+
+instance IsOpts CubeOpts where
+  getOpts opt = CubeOpts {
+    cubeOptsSize      = orDef defaultCubeSize opt.cubeOptsSize,
+    cubeOptsPlacement = orDef PlacementCenter opt.cubeOptsPlacement
   }
 
-cubeCenter :: MonadNeon m => Double -> m Model3D
-cubeCenter size = pure $ Primitive3D $ Cube3D
-  { cubeSize = (size, size, size)
-  , cubeCenter = Just True
+instance HasSize Double (CubeOpts First) where
+  size v = mempty { cubeOptsSize = First $ Just v }
+
+cube :: MonadNeon m => CubeOpts First -> m Model3D
+cube optsMay = pure $ Primitive3D $ Cube3D
+  { cubeSize = (s, s, s)
+  , cubeCenter = case get opts.cubeOptsPlacement of
+      PlacementCenter -> Just True
+      PlacementCorner -> Nothing
   }
+  where
+    s = get opts.cubeOptsSize
+    opts = getOpts optsMay
+
 
 -------------------------------------------------------------------------------
 -- / 3D / Primitive / Cone

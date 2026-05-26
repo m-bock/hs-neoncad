@@ -274,6 +274,15 @@ info2D =
       ]
     )
   ,
+    ( "Ellipse"
+    ,
+      [
+        ( "Default"
+        , to3D $ ellipse mempty
+        )
+      ]
+    )
+  ,
     ( "Rect"
     ,
       [
@@ -351,7 +360,7 @@ info3D =
     ,
       [
         ( "Default"
-        , cube 100
+        , cube mempty
         )
       ]
     )
