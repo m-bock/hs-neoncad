@@ -10,7 +10,11 @@ magic ys =
           comment nameY $
             moveY (iy * 210) $
               unions
-                [ moveX (-200) $ scale 2 $ extrudeLinear 2 $ text $ str nameY
+                [ moveX (-200) $
+                    scale 2 $
+                      extrudeLinear (height 2) $
+                        text $
+                          str nameY
                 , unions (zipWith (\ix it -> moveX (ix * 210) $ magicOne it) [0 ..] xs)
                 ]
       )
@@ -28,13 +32,13 @@ magicOne (name, modelM) =
                   [ comment "Background" $
                       color (rgb white) $
                         moveZ (-1) $
-                          extrudeLinear 1 $
+                          extrudeLinear (height 1) $
                             square $
                               size 200
                   , comment "Label" $
                       moveXY (-100 + 10, -100 + 10) $
                         color (rgb red) $
-                          extrudeLinear 1 $
+                          extrudeLinear (height 1) $
                             text $
                               str name
                   , comment "Axis" $
@@ -222,7 +226,7 @@ colors =
   , gray
   ]
 
-colorize :: (MonadNeon m, Color model m) => [m model] -> [m model]
+colorize :: (MonadNeon m, Color (m model)) => [m model] -> [m model]
 colorize models =
   zipWith
     ( \c model ->
@@ -235,7 +239,7 @@ level :: (MonadNeon m) => [m Model2D] -> [m Model3D]
 level models = map to3D models
 
 to3D :: (MonadNeon m) => m Model2D -> m Model3D
-to3D model = extrudeLinear 0.8 $ difference (offset 0.5 model) (offset (-0.5) model)
+to3D model = extrudeLinear (height 0.8) $ difference (offset 0.5 model) (offset (-0.5) model)
 
 -- zipWith
 --   ( \i model ->

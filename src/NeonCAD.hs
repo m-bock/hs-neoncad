@@ -5,7 +5,10 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE StandaloneDeriving #-}
-
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveFunctor #-}
+{-# LANGUAGE RankNTypes #-}
 
 module NeonCAD (
   comment,
@@ -17,6 +20,8 @@ module NeonCAD (
   scale,
   size,
   HasSize, HasPlacement,
+  height,
+  centerZ,
 
   -- 2D / Primitive
   ellipse,
@@ -40,7 +45,6 @@ module NeonCAD (
   union, unions,
   intersection, intersections,
   difference,
-  scale,
   resizeXYZ, resizeXY, resizeXZ, resizeYZ, resizeX, resizeY, resizeZ,
   resizeAutoXY, resizeAutoXZ, resizeAutoYZ, resizeAutoX, resizeAutoY, resizeAutoZ,
   moveXYZ, moveXY, moveXZ, moveYZ, moveX, moveY, moveZ,
@@ -50,7 +54,7 @@ module NeonCAD (
   hull,
 
   -- 2D-3D Conversion
-  extrudeLinear, extrudeWithSpin,
+  extrudeLinear, extrudeRotational,
 
   -- Modifiers
   modDisable, modShowOnly, modHighlight, modTransparent,
@@ -83,7 +87,8 @@ import OpenSCAD
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.Monoid (First(..))
 import Data.Maybe (fromMaybe)
-import GHC.Generics (Generic, Generically(..))
+import GHC.Generics
+import Barbies
 
 -------------------------------------------------------------------------------
 -- / Defaults
@@ -190,6 +195,7 @@ defaultEllipsoidSize =
       a = defaultRatio * b
   in
     (2 * a, 2 * b, 2 * b)
+
 -------------------------------------------------------------------------------
 -- / Monad
 -------------------------------------------------------------------------------
@@ -241,13 +247,6 @@ class (Monad m) => MonadNeon m where
   localFacets :: Facets -> m a -> m a
 
 -------------------------------------------------------------------------------
--- / Classes / IsOpts
--------------------------------------------------------------------------------
-
-class (Monoid (a First)) => IsOpts a where
-  getOpts :: a First -> a Identity
-
--------------------------------------------------------------------------------
 -- / Classes / HasPlacement
 -------------------------------------------------------------------------------
 
@@ -290,15 +289,15 @@ class HasSize v a | a -> v where
 -- / Classes / Comment
 -------------------------------------------------------------------------------
 
-class Comment a m where
-  comment :: String -> m a -> m a
+class Comment a where
+  comment :: String -> a -> a
 
-instance MonadNeon m => Comment Model2D m where
+instance MonadNeon m => Comment (m Model2D) where
   comment txt modelM = do
     model <- modelM
     pure $ Comment2D txt model
 
-instance MonadNeon m => Comment Model3D m where
+instance MonadNeon m => Comment (m Model3D) where
   comment txt modelM = do
     model <- modelM
     pure $ Comment3D txt model
@@ -307,110 +306,110 @@ instance MonadNeon m => Comment Model3D m where
 -- / Classes / Scale
 -------------------------------------------------------------------------------
 
-class ScaleXYZ a m where
-  scaleXYZ :: V3 Double -> m a -> m a
+class ScaleXYZ a where
+  scaleXYZ :: V3 Double -> a -> a
 
-class ScaleXY a m where
-  scaleXY :: V2 Double -> m a -> m a
+class ScaleXY a where
+  scaleXY :: V2 Double -> a -> a
 
-class ScaleXZ a m where
-  scaleXZ :: V2 Double -> m a -> m a
+class ScaleXZ a where
+  scaleXZ :: V2 Double -> a -> a
 
-class ScaleYZ a m where
-  scaleYZ :: V2 Double -> m a -> m a
+class ScaleYZ a where
+  scaleYZ :: V2 Double -> a -> a
 
-class ScaleX a m where
-  scaleX :: Double -> m a -> m a
+class ScaleX a where
+  scaleX :: Double -> a -> a
 
-class ScaleY a m where
-  scaleY :: Double -> m a -> m a
+class ScaleY a where
+  scaleY :: Double -> a -> a
 
-class ScaleZ a m where
-  scaleZ :: Double -> m a -> m a
+class ScaleZ a where
+  scaleZ :: Double -> a -> a
 
-class Scale a m where
-  scale :: Double -> m a -> m a
+class Scale a where
+  scale :: Double -> a -> a
 
 -- * 2D
 
-instance MonadNeon m => ScaleXY Model2D m where
+instance (MonadNeon m) => ScaleXY (m Model2D) where
   scaleXY (x, y) modelM = do
     model <- modelM
     pure $ Transform2D (Scale2D (x, y)) [model]
 
-instance MonadNeon m => ScaleX Model2D m where
+instance (MonadNeon m) => ScaleX (m Model2D) where
   scaleX x modelM = scaleXY (x, 1) modelM
 
-instance MonadNeon m => ScaleY Model2D m where
+instance (MonadNeon m) => ScaleY (m Model2D) where
   scaleY y modelM = scaleXY (1, y) modelM
 
-instance MonadNeon m => Scale Model2D m where
+instance MonadNeon m => Scale (m Model2D) where
   scale x modelM = scaleXY (x, x) modelM
 
 -- * 3D
 
-instance MonadNeon m => ScaleXYZ Model3D m where
+instance (MonadNeon m) => ScaleXYZ (m Model3D) where
   scaleXYZ v modelM = do
     model <- modelM
     pure $ Transform3D (Scale3D v) [model]
 
-instance MonadNeon m => ScaleXY Model3D m where
+instance (MonadNeon m) => ScaleXY (m Model3D) where
   scaleXY (x, y) modelM = scaleXYZ (x, y, 1) modelM
   
-instance MonadNeon m => ScaleXZ Model3D m where
+instance (MonadNeon m) => ScaleXZ (m Model3D) where
   scaleXZ (x, z) modelM = scaleXYZ (x, 1, z) modelM
 
-instance MonadNeon m => ScaleYZ Model3D m where
+instance (MonadNeon m) => ScaleYZ (m Model3D) where
   scaleYZ (y, z) modelM = scaleXYZ (1, y, z) modelM
 
-instance MonadNeon m => ScaleX Model3D m where
+instance (MonadNeon m) => ScaleX (m Model3D) where
   scaleX x modelM = scaleXYZ (x, 1, 1) modelM
 
-instance MonadNeon m => ScaleY Model3D m where
+instance (MonadNeon m) => ScaleY (m Model3D) where
   scaleY y modelM = scaleXYZ (1, y, 1) modelM
 
-instance MonadNeon m => Scale Model3D m where
+instance MonadNeon m => Scale (m Model3D) where
   scale x modelM = scaleXYZ (x, x, x) modelM
 
 -------------------------------------------------------------------------------
 -- / Classes / Move
 -------------------------------------------------------------------------------
 
-class MoveXYZ a m where
-  moveXYZ :: V3 Double -> m a -> m a
+class MoveXYZ a where
+  moveXYZ :: V3 Double -> a -> a
 
-class MoveXY a m where
-  moveXY :: V2 Double -> m a -> m a
+class MoveXY a where
+  moveXY :: V2 Double -> a -> a
 
-class MoveXZ a m where
-  moveXZ :: V2 Double -> m a -> m a
+class MoveXZ a where
+  moveXZ :: V2 Double -> a -> a
 
-class MoveYZ a m where
-  moveYZ :: V2 Double -> m a -> m a
+class MoveYZ a where
+  moveYZ :: V2 Double -> a -> a
 
-class MoveX a m where
-  moveX :: Double -> m a -> m a
+class MoveX a where
+  moveX :: Double -> a -> a
 
-class MoveY a m where
-  moveY :: Double -> m a -> m a
+class MoveY a where
+  moveY :: Double -> a -> a
 
-class MoveZ a m where
-  moveZ :: Double -> m a -> m a
+class MoveZ a where
+  moveZ :: Double -> a -> a
 
 -- * 2D
 
-instance MonadNeon m => MoveXY Model2D m where
+instance (MonadNeon m) => MoveXY (m Model2D) where
   moveXY (x, y) modelM = do
     model <- modelM
     pure $ Transform2D (Translate2D (x, y, 0)) [model]
 
-instance MonadNeon m => MoveX Model2D m where
+instance (MonadNeon m) => MoveX (m Model2D) where
   moveX x modelM = moveXY (x, 0) modelM
 
-instance MonadNeon m => MoveY Model2D m where
+instance (MonadNeon m) => MoveY (m Model2D) where
   moveY y modelM = moveXY (0, y) modelM
 
-instance MonadNeon m => MoveZ Model2D m where
+instance (MonadNeon m) => MoveZ (m Model2D) where
   moveZ z modelM = do
     model <- modelM
     pure $ Transform2D (Translate2D (0, 0, z)) [model]
@@ -418,27 +417,27 @@ instance MonadNeon m => MoveZ Model2D m where
 
 -- * 3D
 
-instance MonadNeon m => MoveXYZ Model3D m where
+instance (MonadNeon m) => MoveXYZ (m Model3D) where
   moveXYZ v modelM = do
     model <- modelM
     pure $ Transform3D (Translate3D v) [model]
 
-instance MonadNeon m => MoveXY Model3D m where
+instance (MonadNeon m) => MoveXY (m Model3D) where
   moveXY (x, y) modelM = moveXYZ (x, y, 0) modelM
 
-instance MonadNeon m => MoveXZ Model3D m where
+instance (MonadNeon m) => MoveXZ (m Model3D) where
   moveXZ (x, z) modelM = moveXYZ (x, 0, z) modelM
 
-instance MonadNeon m => MoveYZ Model3D m where
+instance (MonadNeon m) => MoveYZ (m Model3D) where
   moveYZ (y, z) modelM = moveXYZ (0, y, z) modelM
 
-instance MonadNeon m => MoveX Model3D m where
+instance (MonadNeon m) => MoveX (m Model3D) where
   moveX x modelM = moveXYZ (x, 0, 0) modelM
 
-instance MonadNeon m => MoveY Model3D m where
+instance (MonadNeon m) => MoveY (m Model3D) where
   moveY y modelM = moveXYZ (0, y, 0) modelM
 
-instance MonadNeon m => MoveZ Model3D m where
+instance (MonadNeon m) => MoveZ (m Model3D) where
   moveZ z modelM = moveXYZ (0, 0, z) modelM
 
 
@@ -446,99 +445,99 @@ instance MonadNeon m => MoveZ Model3D m where
 -- / Classes / Resize
 -------------------------------------------------------------------------------
 
-class ResizeXYZ a m where
-  resizeXYZ :: V3 Double -> m a -> m a
+class ResizeXYZ a where
+  resizeXYZ :: V3 Double -> a -> a
 
-class ResizeXY a m where
-  resizeXY :: V2 Double -> m a -> m a
+class ResizeXY a where
+  resizeXY :: V2 Double -> a -> a
 
-class ResizeXZ a m where
-  resizeXZ :: V2 Double -> m a -> m a
+class ResizeXZ a where
+  resizeXZ :: V2 Double -> a -> a
 
-class ResizeYZ a m where
-  resizeYZ :: V2 Double -> m a -> m a
+class ResizeYZ a where
+  resizeYZ :: V2 Double -> a -> a
 
-class ResizeX a m where
-  resizeX :: Double -> m a -> m a
+class ResizeX a where
+  resizeX :: Double -> a -> a
 
-class ResizeY a m where
-  resizeY :: Double -> m a -> m a
+class ResizeY a where
+  resizeY :: Double -> a -> a
 
-class ResizeZ a m where
-  resizeZ :: Double -> m a -> m a
+class ResizeZ a where
+  resizeZ :: Double -> a -> a
 
 
 -- * 2D
 
-instance MonadNeon m => ResizeXY Model2D m where
+instance (MonadNeon m) => ResizeXY (m Model2D) where
   resizeXY (x, y) modelM = do
     model <- modelM
     pure $ Transform2D (Resize2D (x, y) Nothing) [model]
     
     
-instance MonadNeon m => ResizeX Model2D m where
+instance (MonadNeon m) => ResizeX (m Model2D) where
   resizeX x modelM = resizeXY (x, 1) modelM
 
-instance MonadNeon m => ResizeY Model2D m where
+instance (MonadNeon m) => ResizeY (m Model2D) where
   resizeY y modelM = resizeXY (1, y) modelM
 
 
 -- * 3D
 
-instance MonadNeon m => ResizeXYZ Model3D m where
+instance (MonadNeon m) => ResizeXYZ (m Model3D) where
   resizeXYZ (x, y, z) modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (x, y, z) Nothing) [model]
     
-instance MonadNeon m => ResizeXY Model3D m where
+instance (MonadNeon m) => ResizeXY (m Model3D) where
   resizeXY (x, y) modelM = resizeXYZ (x, y, 0) modelM
   
-instance MonadNeon m => ResizeXZ Model3D m where
+instance (MonadNeon m) => ResizeXZ (m Model3D) where
   resizeXZ (x, z) modelM = resizeXYZ (x, 1, z) modelM
 
-instance MonadNeon m => ResizeYZ Model3D m where
+instance (MonadNeon m) => ResizeYZ (m Model3D) where
   resizeYZ (y, z) modelM = resizeXYZ (1, y, z) modelM
 
-instance MonadNeon m => ResizeX Model3D m where
+instance (MonadNeon m) => ResizeX (m Model3D) where
   resizeX x modelM = resizeXYZ (x, 1, 1) modelM
 
-instance MonadNeon m => ResizeY Model3D m where
+instance (MonadNeon m) => ResizeY (m Model3D) where
   resizeY y modelM = resizeXYZ (1, y, 1) modelM
 
-instance MonadNeon m => ResizeZ Model3D m where
+instance (MonadNeon m) => ResizeZ (m Model3D) where
   resizeZ z modelM = resizeXYZ (1, 1, z) modelM
 
 -------------------------------------------------------------------------------
 -- / Classes / Resize Auto
 -------------------------------------------------------------------------------
 
-class ResizeAutoXY a m where
-  resizeAutoXY :: V2 Double -> m a -> m a
+class ResizeAutoXY a where
+  resizeAutoXY :: V2 Double -> a -> a
 
-class ResizeAutoXZ a m where
-  resizeAutoXZ :: V2 Double -> m a -> m a
+class ResizeAutoXZ a where
+  resizeAutoXZ :: V2 Double -> a -> a
 
-class ResizeAutoYZ a m where
-  resizeAutoYZ :: V2 Double -> m a -> m a
+class ResizeAutoYZ a where
+  resizeAutoYZ :: V2 Double -> a -> a
 
-class ResizeAutoX a m where
-  resizeAutoX :: Double -> m a -> m a
+class ResizeAutoX a where
+  resizeAutoX :: Double -> a -> a
 
-class ResizeAutoY a m where
-  resizeAutoY :: Double -> m a -> m a
+class ResizeAutoY a where
+  resizeAutoY :: Double -> a -> a
 
-class ResizeAutoZ a m where
-  resizeAutoZ :: Double -> m a -> m a
+class ResizeAutoZ a where
+  resizeAutoZ :: Double -> a -> a
 
 
 -- * 2D
 
-instance MonadNeon m => ResizeAutoX Model2D m where
+instance (MonadNeon m) => ResizeAutoX (m Model2D) where
   resizeAutoX x modelM = do
     model <- modelM
     pure $ Transform2D (Resize2D (x, 0) (Just (False, True))) [model]
 
-instance MonadNeon m => ResizeAutoY Model2D m where
+instance (MonadNeon m) => ResizeAutoY (m Model2D) where
   resizeAutoY y modelM = do
     model <- modelM
     pure $ Transform2D (Resize2D (0, y) (Just (True, False))) [model]
@@ -546,32 +545,32 @@ instance MonadNeon m => ResizeAutoY Model2D m where
 
 -- * 3D
 
-instance MonadNeon m => ResizeAutoXY Model3D m where
+instance (MonadNeon m) => ResizeAutoXY (m Model3D) where
   resizeAutoXY (x, y) modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (x, y, 0) (Just (False, False, True))) [model]
   
-instance MonadNeon m => ResizeAutoXZ Model3D m where
+instance (MonadNeon m) => ResizeAutoXZ (m Model3D) where
   resizeAutoXZ (x, z) modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (x, 0, z) (Just (False, True, False))) [model]
   
-instance MonadNeon m => ResizeAutoYZ Model3D m where
+instance (MonadNeon m) => ResizeAutoYZ (m Model3D) where
   resizeAutoYZ (y, z) modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (0, y, z) (Just (True, False, False))) [model]
 
-instance MonadNeon m => ResizeAutoX Model3D m where
+instance (MonadNeon m) => ResizeAutoX (m Model3D) where
   resizeAutoX x modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (x, 0, 0) (Just (False, True, True))) [model]
 
-instance MonadNeon m => ResizeAutoY Model3D m where
+instance (MonadNeon m) => ResizeAutoY (m Model3D) where
   resizeAutoY y modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (0, y, 0) (Just (True, False, True))) [model]
 
-instance MonadNeon m => ResizeAutoZ Model3D m where
+instance (MonadNeon m) => ResizeAutoZ (m Model3D) where
   resizeAutoZ z modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (0, 0, z) (Just (True, True, False))) [model]
@@ -581,31 +580,31 @@ instance MonadNeon m => ResizeAutoZ Model3D m where
 -- / Classes / Spin
 -------------------------------------------------------------------------------
 
-class SpinXYZ a m where
-  spinXYZ :: V3 Double -> m a -> m a
+class SpinXYZ a where
+  spinXYZ :: V3 Double -> a -> a
 
-class SpinXY a m where
-  spinXY :: V2 Double -> m a -> m a
+class SpinXY a where
+  spinXY :: V2 Double -> a -> a
 
-class SpinXZ a m where
-  spinXZ :: V2 Double -> m a -> m a
+class SpinXZ a where
+  spinXZ :: V2 Double -> a -> a
 
-class SpinYZ a m where
-  spinYZ :: V2 Double -> m a -> m a
+class SpinYZ a where
+  spinYZ :: V2 Double -> a -> a
 
-class SpinX a m where
-  spinX :: Double -> m a -> m a
+class SpinX a where
+  spinX :: Double -> a -> a
 
-class SpinY a m where
-  spinY :: Double -> m a -> m a
+class SpinY a where
+  spinY :: Double -> a -> a
 
-class SpinZ a m where
-  spinZ :: Double -> m a -> m a
+class SpinZ a where
+  spinZ :: Double -> a -> a
 
 
 -- * 2D
 
-instance MonadNeon m => SpinZ Model2D m where
+instance (MonadNeon m) => SpinZ (m Model2D) where
   spinZ z modelM = do
     model <- modelM
     pure $ Transform2D (RotateEuler2D (0, 0, z)) [model]
@@ -613,96 +612,96 @@ instance MonadNeon m => SpinZ Model2D m where
 
 -- * 3D
 
-instance MonadNeon m => SpinXYZ Model3D m where
+instance (MonadNeon m) => SpinXYZ (m Model3D) where
   spinXYZ (x, y, z) modelM = do
     model <- modelM
     pure $ Transform3D (RotateEuler3D (x, y, z)) [model]
 
-instance MonadNeon m => SpinXY Model3D m where
+instance (MonadNeon m) => SpinXY (m Model3D) where
   spinXY (x, y) modelM = spinXYZ (x, y, 0) modelM
 
-instance MonadNeon m => SpinXZ Model3D m where
+instance (MonadNeon m) => SpinXZ (m Model3D) where
   spinXZ (x, z) modelM = spinXYZ (x, 0, z) modelM
 
-instance MonadNeon m => SpinYZ Model3D m where
+instance (MonadNeon m) => SpinYZ (m Model3D) where
   spinYZ (y, z) modelM = spinXYZ (0, y, z) modelM
 
-instance MonadNeon m => SpinX Model3D m where
+instance (MonadNeon m) => SpinX (m Model3D) where
   spinX x modelM = spinXYZ (x, 0, 0) modelM
 
-instance MonadNeon m => SpinY Model3D m where
+instance (MonadNeon m) => SpinY (m Model3D) where
   spinY y modelM = spinXYZ (0, y, 0) modelM
 
-instance MonadNeon m => SpinZ Model3D m where
+instance (MonadNeon m) => SpinZ (m Model3D) where
   spinZ z modelM = spinXYZ (0, 0, z) modelM
 
 -------------------------------------------------------------------------------
 -- / Classes / Mirror
 -------------------------------------------------------------------------------
 
-class MirrorXYZ a m where
-  mirrorXYZ :: V3 Double -> m a -> m a
+class MirrorXYZ a where
+  mirrorXYZ :: V3 Double -> a -> a
 
-class MirrorXY a m where
-  mirrorXY :: V2 Double -> m a -> m a
+class MirrorXY a where
+  mirrorXY :: V2 Double -> a -> a
 
-class MirrorXZ a m where
-  mirrorXZ :: V2 Double -> m a -> m a
+class MirrorXZ a where
+  mirrorXZ :: V2 Double -> a -> a
 
-class MirrorYZ a m where
-  mirrorYZ :: V2 Double -> m a -> m a
+class MirrorYZ a where
+  mirrorYZ :: V2 Double -> a -> a
 
-class MirrorX a m where
-  mirrorX :: m a -> m a
+class MirrorX a where
+  mirrorX :: a -> a
 
-class MirrorY a m where
-  mirrorY :: m a -> m a
+class MirrorY a where
+  mirrorY :: a -> a
 
-class MirrorZ a m where
-  mirrorZ :: Double -> m a -> m a
+class MirrorZ a where
+  mirrorZ :: Double -> a -> a
 
 
 -- * 2D
 
-instance MonadNeon m => MirrorX Model2D m where
+instance (MonadNeon m) => MirrorX (m Model2D) where
   mirrorX modelM = do
     model <- modelM
     pure $ Transform2D (Mirror2D (0, 1)) [model]
 
 
-instance MonadNeon m => MirrorY Model2D m where
+instance (MonadNeon m) => MirrorY (m Model2D) where
   mirrorY modelM = do
     model <- modelM
     pure $ Transform2D (Mirror2D (1, 0)) [model]
 
-instance MonadNeon m => MirrorXY Model2D m where
+instance (MonadNeon m) => MirrorXY (m Model2D) where
   mirrorXY (x, y) modelM = do
     model <- modelM
     pure $ Transform2D (Mirror2D (x, y)) [model]
 
 -- * 3D
 
-instance MonadNeon m => MirrorXYZ Model3D m where
+instance (MonadNeon m) => MirrorXYZ (m Model3D) where
   mirrorXYZ (x, y, z) modelM = do
     model <- modelM
     pure $ Transform3D (Mirror3D (x, y, z)) [model]
 
-instance MonadNeon m => MirrorXY Model3D m where
+instance (MonadNeon m) => MirrorXY (m Model3D) where
   mirrorXY (x, y) modelM = mirrorXYZ (x, y, 0) modelM
 
-instance MonadNeon m => MirrorXZ Model3D m where
+instance (MonadNeon m) => MirrorXZ (m Model3D) where
   mirrorXZ (x, z) modelM = mirrorXYZ (x, 0, z) modelM
 
-instance MonadNeon m => MirrorYZ Model3D m where
+instance (MonadNeon m) => MirrorYZ (m Model3D) where
   mirrorYZ (y, z) modelM = mirrorXYZ (0, y, z) modelM
 
-instance MonadNeon m => MirrorX Model3D m where
+instance (MonadNeon m) => MirrorX (m Model3D) where
   mirrorX modelM = mirrorXYZ (1, 0, 0) modelM
 
-instance MonadNeon m => MirrorY Model3D m where
+instance (MonadNeon m) => MirrorY (m Model3D) where
   mirrorY modelM = mirrorXYZ (0, 1, 0) modelM
 
-instance MonadNeon m => MirrorZ Model3D m where
+instance (MonadNeon m) => MirrorZ (m Model3D) where
   mirrorZ z modelM = mirrorXYZ (0, 0, z) modelM
 
 -------------------------------------------------------------------------------
@@ -713,7 +712,10 @@ data ColorOpts f = ColorOpts {
   colorOptsRgb :: f (V3 Double),
   colorOptsAlpha :: f Double
 } 
-  deriving stock Generic
+  deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
 
 deriving via Generically (ColorOpts First)
   instance Semigroup (ColorOpts First)
@@ -721,14 +723,14 @@ deriving via Generically (ColorOpts First)
 deriving via Generically (ColorOpts First)
   instance Monoid (ColorOpts First)
 
-instance IsOpts ColorOpts where
-  getOpts opt = ColorOpts {
-    colorOptsRgb   = orDef (0, 0, 0) opt.colorOptsRgb,
-    colorOptsAlpha = orDef 1         opt.colorOptsAlpha
-  }
+fallbackColorOpts :: ColorOpts Identity
+fallbackColorOpts = ColorOpts {
+  colorOptsRgb = pure (0, 0, 0),
+  colorOptsAlpha = pure 1
+}
 
-class Color a m where
-  color :: ColorOpts First -> m a -> m a
+class Color a where
+  color :: ColorOpts First -> a -> a
 
 rgb :: V3 Double -> ColorOpts First
 rgb rgbValues = mempty { colorOptsRgb = First $ Just rgbValues }
@@ -738,32 +740,34 @@ alpha alphaValue = mempty { colorOptsAlpha = First $ Just alphaValue }
 
 -- * 2D
 
-instance MonadNeon m => Color Model2D m where
+instance (MonadNeon m) => Color (m Model2D) where
   color optsMay modelM = do
     model <- modelM
     pure $ Transform2D (Color2D (get opts.colorOptsRgb) (Just (get opts.colorOptsAlpha))) [model]
     where
-      opts = getOpts optsMay
+      opts :: ColorOpts Identity
+      opts = bzipWith orDef fallbackColorOpts optsMay
 
 -- * 3D
 
-instance MonadNeon m => Color Model3D m where
+instance (MonadNeon m) => Color (m Model3D) where
   color optsMay modelM = do
     model <- modelM
     pure $ Transform3D (Color3D (get opts.colorOptsRgb) (Just (get opts.colorOptsAlpha))) [model]
     where
-      opts = getOpts optsMay
+      opts :: ColorOpts Identity
+      opts = bzipWith orDef fallbackColorOpts optsMay
 
 -------------------------------------------------------------------------------
 -- / Classes / Hull
 -------------------------------------------------------------------------------
 
-class Hull a m where
-  hull :: m a -> m a
+class Hull a where
+  hull :: a -> a
 
 -- * 2D
 
-instance MonadNeon m => Hull Model2D m where
+instance (MonadNeon m) => Hull (m Model2D) where
   hull modelM = do
     model <- modelM
     pure $ Transform2D Hull2D [model]
@@ -771,7 +775,7 @@ instance MonadNeon m => Hull Model2D m where
 
 -- * 3D
 
-instance MonadNeon m => Hull Model3D m where
+instance (MonadNeon m) => Hull (m Model3D) where
   hull modelM = do
     model <- modelM
     pure $ Transform3D Hull3D [model]
@@ -780,14 +784,14 @@ instance MonadNeon m => Hull Model3D m where
 -- / Classes / Union
 -------------------------------------------------------------------------------
 
-class Union a m where
-  union :: m a -> m a -> m a
-  unions :: [m a] -> m a
+class Union a where
+  union :: a -> a -> a
+  unions :: [a] -> a
 
 
 -- * 2D
 
-instance MonadNeon m => Union Model2D m where
+instance (MonadNeon m) => Union (m Model2D) where
   union modelAM modelBM = do
     modelA <- modelAM
     modelB <- modelBM
@@ -800,7 +804,7 @@ instance MonadNeon m => Union Model2D m where
 
 -- * 3D
 
-instance MonadNeon m => Union Model3D m where
+instance (MonadNeon m) => Union (m Model3D) where
   union modelAM modelBM = do
     modelA <- modelAM
     modelB <- modelBM
@@ -814,33 +818,33 @@ instance MonadNeon m => Union Model3D m where
 -- / Classes / Empty
 -------------------------------------------------------------------------------
 
-class Empty a m where
-  empty :: m a
+class Empty a where
+  empty :: a
 
 
 -- * 2D
 
-instance MonadNeon m => Empty Model2D m where
+instance (MonadNeon m) => Empty (m Model2D) where
   empty = pure $ BoolOp2D Union2D []
 
 
 -- * 3D
 
-instance MonadNeon m => Empty Model3D m where
+instance (MonadNeon m) => Empty (m Model3D) where
   empty = pure $ BoolOp3D Union3D []
 
 -------------------------------------------------------------------------------
 -- / Classes / Intersection
 -------------------------------------------------------------------------------
 
-class Intersection a m where
-  intersection :: m a -> m a -> m a
-  intersections :: [m a] -> m a
+class Intersection a where
+  intersection :: a -> a -> a
+  intersections :: [a] -> a
 
 
 -- * 2D
 
-instance MonadNeon m => Intersection Model2D m where
+instance (MonadNeon m) => Intersection (m Model2D) where
   intersection modelAM modelBM = do
     modelA <- modelAM
     modelB <- modelBM
@@ -853,7 +857,7 @@ instance MonadNeon m => Intersection Model2D m where
 
 -- * 3D
 
-instance MonadNeon m => Intersection Model3D m where
+instance (MonadNeon m) => Intersection (m Model3D) where
   intersection modelAM modelBM = do
     modelA <- modelAM
     modelB <- modelBM
@@ -863,13 +867,13 @@ instance MonadNeon m => Intersection Model3D m where
 -- / Classes / Difference
 -------------------------------------------------------------------------------
 
-class Difference a m where
-  difference :: m a -> m a -> m a
+class Difference a where
+  difference :: a -> a -> a
 
 
 -- * 2D
 
-instance MonadNeon m => Difference Model2D m where
+instance (MonadNeon m) => Difference (m Model2D) where
   difference modelAM modelBM = do
     modelA <- modelAM
     modelB <- modelBM
@@ -878,7 +882,7 @@ instance MonadNeon m => Difference Model2D m where
 
 -- * 3D
 
-instance MonadNeon m => Difference Model3D m where
+instance (MonadNeon m) => Difference (m Model3D) where
   difference modelAM modelBM = do
     modelA <- modelAM
     modelB <- modelBM
@@ -888,16 +892,16 @@ instance MonadNeon m => Difference Model3D m where
 -- / Classes / Modifiers
 -------------------------------------------------------------------------------
 
-class Modifiers a m where
-  modDisable :: m a -> m a
-  modShowOnly :: m a -> m a
-  modHighlight :: m a -> m a
-  modTransparent :: m a -> m a
+class Modifiers a where
+  modDisable :: a -> a
+  modShowOnly :: a -> a
+  modHighlight :: a -> a
+  modTransparent :: a -> a
 
 
 -- * 2D
 
-instance MonadNeon m => Modifiers Model2D m where
+instance (MonadNeon m) => Modifiers (m Model2D) where
   modDisable modelM = do
     model <- modelM
     pure $ Modifier2D ModDisable model
@@ -914,7 +918,7 @@ instance MonadNeon m => Modifiers Model2D m where
 
 -- * 3D
 
-instance MonadNeon m => Modifiers Model3D m where
+instance (MonadNeon m) => Modifiers (m Model3D) where
   modDisable modelM = do
     model <- modelM
     pure $ Modifier3D ModDisable model
@@ -936,7 +940,10 @@ data CircleOpts f = CircleOpts {
   circleOptsDiameter  :: f Double,
   circleOptsPlacement :: f Placement,
   circleOptsFacets    :: f Facets
-} deriving stock Generic
+} deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
 
 deriving via Generically (CircleOpts First)
   instance Semigroup (CircleOpts First)
@@ -944,13 +951,12 @@ deriving via Generically (CircleOpts First)
 deriving via Generically (CircleOpts First)
   instance Monoid (CircleOpts First)
 
-instance IsOpts CircleOpts where
-  getOpts opt =
-    CircleOpts {
-      circleOptsDiameter  = orDef defaultCircleDiameter opt.circleOptsDiameter,
-      circleOptsPlacement = orDef PlacementCenter       opt.circleOptsPlacement,
-      circleOptsFacets    = orDef defaultFacets         opt.circleOptsFacets
-    }
+fallbackCircleOpts :: Facets -> CircleOpts Identity
+fallbackCircleOpts fc = CircleOpts {
+    circleOptsDiameter  = pure defaultCircleDiameter,
+    circleOptsPlacement = pure PlacementCenter,
+    circleOptsFacets    = pure fc
+  }
 
 instance HasDiameter (CircleOpts First) where
   diameter v = mempty { circleOptsDiameter = First $ Just v }
@@ -965,20 +971,21 @@ instance HasPlacement (CircleOpts First) where
 circle :: (MonadNeon m) => CircleOpts First -> m Model2D
 circle allOpts = do
   fc <- askFacets
-  pure $ handlePlacement $ Primitive2D $ Circle2D
-    { circleDiameter = get opts.circleOptsDiameter
-    , circleFacets   = Just fc
-    }
-  where
+  
+  let
     opts :: CircleOpts Identity
-    opts = getOpts allOpts
+    opts = bzipWith orDef (fallbackCircleOpts fc) allOpts
 
     r = get opts.circleOptsDiameter / 2
 
-    handlePlacement :: Model2D -> Model2D
     handlePlacement m = case get opts.circleOptsPlacement of
       PlacementCenter -> m
-      PlacementCorner -> Transform2D (Translate2D (r, r, 0)) [m]
+      PlacementCorner -> moveXY (r, r) m
+
+  handlePlacement $ pure $ Primitive2D $ Circle2D
+    { circleDiameter = get opts.circleOptsDiameter
+    , circleFacets   = Just (get opts.circleOptsFacets)
+    }
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Ellipse
@@ -986,9 +993,12 @@ circle allOpts = do
 
 data EllipseOpts f = EllipseOpts {
   ellipseOptsSize :: f (V2 Double),
-  ellipseOptsPlacement :: f Placement
-} 
-  deriving stock Generic
+  ellipseOptsPlacement :: f Placement,
+  ellipseOptsFacets :: f Facets
+}  deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
 
 deriving via Generically (EllipseOpts First)
   instance Semigroup (EllipseOpts First)
@@ -996,23 +1006,28 @@ deriving via Generically (EllipseOpts First)
 deriving via Generically (EllipseOpts First)
   instance Monoid (EllipseOpts First)
 
-instance IsOpts EllipseOpts where
-  getOpts opt = EllipseOpts {
-    ellipseOptsSize      = orDef defaultEllipseSize opt.ellipseOptsSize,
-    ellipseOptsPlacement = orDef PlacementCenter opt.ellipseOptsPlacement
-  }
+fallbackEllipseOpts :: Facets -> EllipseOpts Identity
+fallbackEllipseOpts fc = EllipseOpts {
+  ellipseOptsSize      = pure defaultEllipseSize,
+  ellipseOptsPlacement = pure PlacementCenter,
+  ellipseOptsFacets = pure fc
+}
 
 ellipse :: MonadNeon m => EllipseOpts First -> m Model2D
-ellipse optsMay = handlePlacement $ resizeXY (dx, dy) $ circle (diameter (max dx dy))
-  where
+ellipse optsMay = do
+  
+  fc <- askFacets
+  let
+    opts :: EllipseOpts Identity
+    opts = bzipWith orDef (fallbackEllipseOpts fc) optsMay
+    
     (dx, dy) = get opts.ellipseOptsSize
 
-    handlePlacement :: MonadNeon m => m Model2D -> m Model2D
     handlePlacement m = case get opts.ellipseOptsPlacement of
       PlacementCenter -> m
       PlacementCorner -> moveXY (dx, dy) m
 
-    opts = getOpts optsMay
+  handlePlacement $ resizeXY (dx, dy) $ circle (diameter (max dx dy) <> facets (get opts.ellipseOptsFacets))
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Rect
@@ -1022,7 +1037,10 @@ data RectOpts f = RectOpts {
   rectOptsSize      :: f (V2 Double),
   rectOptsPlacement :: f Placement
 }
-  deriving stock Generic
+  deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
 
 deriving via Generically (RectOpts First)
   instance Semigroup (RectOpts First)
@@ -1030,11 +1048,11 @@ deriving via Generically (RectOpts First)
 deriving via Generically (RectOpts First)
   instance Monoid (RectOpts First)
 
-instance IsOpts RectOpts where
-  getOpts opt = RectOpts {
-    rectOptsSize      = orDef defaultRectSize opt.rectOptsSize,
-    rectOptsPlacement = orDef PlacementCenter opt.rectOptsPlacement
-  }
+fallbackRectOpts :: RectOpts Identity
+fallbackRectOpts = RectOpts {
+  rectOptsSize = pure defaultRectSize,
+  rectOptsPlacement = pure PlacementCenter
+}
 
 instance HasPlacement (RectOpts First) where
   placement v = mempty { rectOptsPlacement = First $ Just v }
@@ -1051,7 +1069,7 @@ rect opts = pure $ Primitive2D $ Square2D
   }
   where
     opt :: RectOpts Identity
-    opt = getOpts opts
+    opt = bzipWith orDef fallbackRectOpts opts
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Square
@@ -1061,7 +1079,10 @@ data SquareOpts f = SquareOpts {
   squareOptsSize :: f Double,
   squareOptsPlacement :: f Placement
 }
-  deriving stock Generic
+  deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
 
 deriving via Generically (SquareOpts First)
   instance Semigroup (SquareOpts First)
@@ -1069,11 +1090,12 @@ deriving via Generically (SquareOpts First)
 deriving via Generically (SquareOpts First)
   instance Monoid (SquareOpts First)
 
-instance IsOpts SquareOpts where
-  getOpts opt = SquareOpts {
-    squareOptsSize = orDef defaultSquareSize opt.squareOptsSize,
-    squareOptsPlacement = orDef PlacementCenter opt.squareOptsPlacement
-  }
+
+fallbackSquareOpts :: SquareOpts Identity
+fallbackSquareOpts = SquareOpts {
+  squareOptsSize = pure defaultSquareSize,
+  squareOptsPlacement = pure PlacementCenter
+}
 
 instance HasSize Double (SquareOpts First) where
   size v = mempty { squareOptsSize = First $ Just v }
@@ -1089,7 +1111,8 @@ square optsMay = pure $ Primitive2D $ Square2D
       PlacementCorner -> Nothing
   }
   where
-    opts = getOpts optsMay
+    opts :: SquareOpts Identity
+    opts = bzipWith orDef fallbackSquareOpts optsMay
     s = get opts.squareOptsSize
 
 -------------------------------------------------------------------------------
@@ -1104,7 +1127,10 @@ data PolygonOpts f = PolygonOpts {
   polygonOptsConvexity :: f Int,
   polygonOptsPlacement :: f Placement
 } 
-  deriving stock Generic
+  deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
 
 deriving via Generically (PolygonOpts First)
   instance Semigroup (PolygonOpts First)
@@ -1121,12 +1147,12 @@ convexity c = mempty { polygonOptsConvexity = First $ Just c }
 instance HasPlacement (PolygonOpts First) where
   placement v = mempty { polygonOptsPlacement = First $ Just v }
 
-instance IsOpts PolygonOpts where
-  getOpts opt = PolygonOpts {
-    polygonOptsPoints = orDef defaultPolygonPoints opt.polygonOptsPoints,
-    polygonOptsConvexity = orDef defaultConvexity opt.polygonOptsConvexity,
-    polygonOptsPlacement = orDef PlacementCenter opt.polygonOptsPlacement
-  }
+fallbackPolygonOpts :: PolygonOpts Identity
+fallbackPolygonOpts = PolygonOpts {
+  polygonOptsPoints = pure defaultPolygonPoints,
+  polygonOptsConvexity = pure defaultConvexity,
+  polygonOptsPlacement = pure PlacementCenter
+}
 
 polygon :: MonadNeon m => PolygonOpts First -> m Model2D
 polygon optsMay = pure $ Primitive2D $ Polygon2D
@@ -1135,7 +1161,8 @@ polygon optsMay = pure $ Primitive2D $ Polygon2D
   , polygonPaths = Nothing
   }
   where
-    opts = getOpts optsMay
+    opts :: PolygonOpts Identity
+    opts = bzipWith orDef fallbackPolygonOpts optsMay
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Text
@@ -1151,7 +1178,10 @@ data TextOpts f = TextOpts {
   textOptsVAlign :: f VerticalAlignment,
   textOptsSpacing :: f Double
 } 
-  deriving stock Generic
+  deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
 
 deriving via Generically (TextOpts First)
   instance Semigroup (TextOpts First)
@@ -1184,17 +1214,17 @@ str :: String -> TextOpts First
 str s = mempty { textOptsText = First $ Just s }
 
 
-instance IsOpts TextOpts where
-  getOpts opt = TextOpts {
-    textOptsText = orDef "Hello, World!" opt.textOptsText,
-    textOptsFont = orDef FNLiberationSans opt.textOptsFont,
-    textOptsSize = orDef 10 opt.textOptsSize,
-    textOptsStyle = orDef FSRegular opt.textOptsStyle,
-    textOptsDirection = orDef LeftToRight opt.textOptsDirection,
-    textOptsHAlign = orDef HALeft opt.textOptsHAlign,
-    textOptsVAlign = orDef VABaseline opt.textOptsVAlign,
-    textOptsSpacing = orDef 1 opt.textOptsSpacing
-  }
+fallbackTextOpts :: TextOpts Identity
+fallbackTextOpts = TextOpts {
+  textOptsText = pure "Hello, World!",
+  textOptsFont = pure FNLiberationSans,
+  textOptsSize = pure 10,
+  textOptsStyle = pure FSRegular,
+  textOptsDirection = pure LeftToRight,
+  textOptsHAlign = pure HALeft,
+  textOptsVAlign = pure VABaseline,
+  textOptsSpacing = pure 1
+}
 
 data FontName
   = FNLiberationMono
@@ -1254,7 +1284,8 @@ text optsMay = do
     , textScript = Nothing
     }
   where
-    opts = getOpts optsMay
+    opts :: TextOpts Identity
+    opts = bzipWith orDef fallbackTextOpts optsMay
 
 -------------------------------------------------------------------------------
 -- / 2D / Transform / Offset
@@ -1275,21 +1306,6 @@ offsetCut :: (MonadNeon m) => Double -> m Model2D -> m Model2D
 offsetCut = undefined
 
 -------------------------------------------------------------------------------
--- / 2D / Extrude / Rotational
--------------------------------------------------------------------------------
-
-extrudeWithSpin :: (MonadNeon m) => Double -> m Model2D -> m Model3D
-extrudeWithSpin height modelM = do
-  model <- modelM
-  facets <- askFacets
-  pure $ Extrude3D RotateExtrude
-    { rotateAngle = height
-    , rotateConvexity = Nothing
-    , rotateFacets = Just facets
-    }
-    [model]
-
--------------------------------------------------------------------------------
 -- / 3D / Primitive / Box
 -------------------------------------------------------------------------------
 
@@ -1297,7 +1313,10 @@ data BoxOpts f = BoxOpts {
   boxOptsSize :: f (V3 Double),
   boxOptsPlacement :: f Placement
 } 
-  deriving stock Generic
+  deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
 
 deriving via Generically (BoxOpts First)
   instance Semigroup (BoxOpts First)
@@ -1305,11 +1324,12 @@ deriving via Generically (BoxOpts First)
 deriving via Generically (BoxOpts First)
   instance Monoid (BoxOpts First)
 
-instance IsOpts BoxOpts where
-  getOpts opt = BoxOpts {
-    boxOptsSize      = orDef defaultBoxSize opt.boxOptsSize,
-    boxOptsPlacement = orDef PlacementCenter opt.boxOptsPlacement
-  }
+
+fallbackBoxOpts :: BoxOpts Identity
+fallbackBoxOpts = BoxOpts {
+  boxOptsSize = pure defaultBoxSize,
+  boxOptsPlacement = pure PlacementCenter
+}
 
 instance HasSize (V3 Double) (BoxOpts First) where
   size v = mempty { boxOptsSize = First $ Just v }
@@ -1325,7 +1345,8 @@ box optsMay = pure $ Primitive3D $ Cube3D
       PlacementCorner -> Nothing
   }
   where
-    opts = getOpts optsMay
+    opts :: BoxOpts Identity
+    opts = bzipWith orDef fallbackBoxOpts optsMay
 
 -------------------------------------------------------------------------------
 -- / 3D / Primitive / Cube
@@ -1335,7 +1356,10 @@ data CubeOpts f = CubeOpts {
   cubeOptsSize :: f Double,
   cubeOptsPlacement :: f Placement
 } 
-  deriving stock Generic
+  deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
 
 deriving via Generically (CubeOpts First)
   instance Semigroup (CubeOpts First)
@@ -1343,11 +1367,12 @@ deriving via Generically (CubeOpts First)
 deriving via Generically (CubeOpts First)
   instance Monoid (CubeOpts First)
 
-instance IsOpts CubeOpts where
-  getOpts opt = CubeOpts {
-    cubeOptsSize      = orDef defaultCubeSize opt.cubeOptsSize,
-    cubeOptsPlacement = orDef PlacementCenter opt.cubeOptsPlacement
-  }
+
+fallbackCubeOpts :: CubeOpts Identity
+fallbackCubeOpts = CubeOpts {
+  cubeOptsSize = pure defaultCubeSize,
+  cubeOptsPlacement = pure PlacementCenter
+}
 
 instance HasSize Double (CubeOpts First) where
   size v = mempty { cubeOptsSize = First $ Just v }
@@ -1361,7 +1386,9 @@ cube optsMay = pure $ Primitive3D $ Cube3D
   }
   where
     s = get opts.cubeOptsSize
-    opts = getOpts optsMay
+    
+    opts :: CubeOpts Identity
+    opts = bzipWith orDef fallbackCubeOpts optsMay
 
 
 -------------------------------------------------------------------------------
@@ -1385,7 +1412,10 @@ data SphereOpts f = SphereOpts {
   sphereOptsPlacement :: f Placement,
   sphereOptsFacets    :: f Facets
 } 
-  deriving stock Generic
+  deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
 
 deriving via Generically (SphereOpts First)
   instance Semigroup (SphereOpts First)
@@ -1393,12 +1423,13 @@ deriving via Generically (SphereOpts First)
 deriving via Generically (SphereOpts First)
   instance Monoid (SphereOpts First)
 
-instance IsOpts SphereOpts where
-  getOpts opt = SphereOpts {
-    sphereOptsDiameter  = orDef defaultSphereDiameter opt.sphereOptsDiameter,
-    sphereOptsPlacement = orDef PlacementCenter     opt.sphereOptsPlacement,
-    sphereOptsFacets    = orDef defaultFacets       opt.sphereOptsFacets
-  }
+
+fallbackSphereOpts :: Facets -> SphereOpts Identity
+fallbackSphereOpts fc = SphereOpts {
+  sphereOptsDiameter = pure defaultSphereDiameter,
+  sphereOptsPlacement = pure PlacementCenter,
+  sphereOptsFacets = pure fc
+}
 
 instance HasDiameter (SphereOpts First) where
   diameter v = mempty { sphereOptsDiameter = First $ Just v }
@@ -1410,20 +1441,24 @@ instance HasFacets (SphereOpts First) where
   facets v = mempty { sphereOptsFacets = First $ Just v }
 
 sphere :: MonadNeon m => SphereOpts First -> m Model3D
-sphere optsMay = handlePlacement $ pure $ Primitive3D $ Sphere3D
-  { sphereDiameter = get opts.sphereOptsDiameter
-  , sphereFacets   = Just (get opts.sphereOptsFacets)
-  }
-  where
-    opts = getOpts optsMay
+sphere optsMay = do
+  
+  fc <- askFacets
+  let
+    opts :: SphereOpts Identity
+    opts = bzipWith orDef (fallbackSphereOpts fc) optsMay
 
     d = get opts.sphereOptsDiameter
     r = d / 2
 
-    handlePlacement :: MonadNeon m => m Model3D -> m Model3D
     handlePlacement m = case get opts.sphereOptsPlacement of
       PlacementCenter -> m
       PlacementCorner -> moveXYZ (r, r, r) m
+
+  handlePlacement $ pure $ Primitive3D $ Sphere3D
+    { sphereDiameter = d
+    , sphereFacets   = Just (get opts.sphereOptsFacets)
+    }
 
 -------------------------------------------------------------------------------
 -- / 3D / Primitive / Ellipsoid
@@ -1434,7 +1469,10 @@ data EllipsoidOpts f = EllipsoidOpts {
   ellipsoidOptsPlacement :: f Placement,
   ellipsoidOptsFacets :: f Facets
 } 
-  deriving stock Generic
+  deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
 
 deriving via Generically (EllipsoidOpts First)
   instance Semigroup (EllipsoidOpts First)
@@ -1442,12 +1480,12 @@ deriving via Generically (EllipsoidOpts First)
 deriving via Generically (EllipsoidOpts First)
   instance Monoid (EllipsoidOpts First)
 
-instance IsOpts EllipsoidOpts where
-  getOpts opt = EllipsoidOpts {
-    ellipsoidOptsSize      = orDef defaultEllipsoidSize opt.ellipsoidOptsSize,
-    ellipsoidOptsPlacement = orDef PlacementCenter opt.ellipsoidOptsPlacement,
-    ellipsoidOptsFacets    = orDef defaultFacets opt.ellipsoidOptsFacets
-  }
+fallbackEllipsoidOpts :: Facets -> EllipsoidOpts Identity
+fallbackEllipsoidOpts fc = EllipsoidOpts {
+  ellipsoidOptsSize = pure defaultEllipsoidSize,
+  ellipsoidOptsPlacement = pure PlacementCenter,
+  ellipsoidOptsFacets = pure fc
+}
 
 instance HasSize (V3 Double) (EllipsoidOpts First) where
   size v = mempty { ellipsoidOptsSize = First $ Just v }
@@ -1456,23 +1494,24 @@ instance HasPlacement (EllipsoidOpts First) where
   placement v = mempty { ellipsoidOptsPlacement = First $ Just v }
 
 ellipsoid :: MonadNeon m => EllipsoidOpts First -> m Model3D
-ellipsoid optsMay = handleResize $ handlePlacement $ pure $ Primitive3D $ Sphere3D
-  { sphereDiameter = dmax
-  , sphereFacets = Just (get opts.ellipsoidOptsFacets)
-  }
-  where
-    handleResize :: MonadNeon m => m Model3D -> m Model3D
-    handleResize m = case get opts.ellipsoidOptsSize of
-      (dx, dy, dz) -> resizeXYZ (dx, dy, dz) m
+ellipsoid optsMay = do
+  
+  fc <- askFacets
+  let
+    opts :: EllipsoidOpts Identity
+    opts = bzipWith orDef (fallbackEllipsoidOpts fc) optsMay
 
-    handlePlacement :: MonadNeon m => m Model3D -> m Model3D
+    (dx, dy, dz) = get opts.ellipsoidOptsSize
+    dmax = max (max dx dy) dz
+    
     handlePlacement m = case get opts.ellipsoidOptsPlacement of
       PlacementCenter -> m
       PlacementCorner -> moveXYZ (dx, dy, dz) m
 
-    (dx, dy, dz) = get opts.ellipsoidOptsSize
-    dmax = max (max dx dy) dz
-    opts = getOpts optsMay
+  handlePlacement $ resizeXYZ (dx, dy, dz) $ pure $ Primitive3D $ Sphere3D
+    { sphereDiameter = dmax
+    , sphereFacets = Just (get opts.ellipsoidOptsFacets)
+    }
 
 -------------------------------------------------------------------------------
 -- / 3D / Primitive / Polyhedron
@@ -1484,86 +1523,113 @@ ellipsoid optsMay = handleResize $ handlePlacement $ pure $ Primitive3D $ Sphere
 -- / 2D-3D Conversion
 -------------------------------------------------------------------------------
 
-extrudeLinear :: (MonadNeon m) => Double -> m Model2D -> m Model3D
-extrudeLinear height = extrudeLineaWith height mempty
+data ExtrudeLinearOpts f = ExtrudeLinearOpts {
+  extrudeLinearOptsHeight      :: f Double,
+  extrudeLinearOptsCenter      :: f Bool,
+  extrudeLinearOptsScaleFactor :: f Double,
+  extrudeLinearOptsTwistAngle  :: f Double,
+  extrudeLinearOptsTwistSlices :: f (AutoOrSet Int)
+} 
+  deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
 
-extrudeLinearCenter :: (MonadNeon m) => Double -> m Model2D -> m Model3D
-extrudeLinearCenter height = extrudeLineaWith height centerExtr
+deriving via Generically (ExtrudeLinearOpts First)
+  instance Semigroup (ExtrudeLinearOpts First)
 
-data ExtrudeLinearOpts = ExtrudeLinearOpts {
-  center :: Bool,
-  scale :: Maybe Double,
-  twist :: Twist
+deriving via Generically (ExtrudeLinearOpts First)
+  instance Monoid (ExtrudeLinearOpts First)
+
+data AutoOrSet a = Auto | Set a
+
+height :: Double -> ExtrudeLinearOpts First
+height h = mempty { extrudeLinearOptsHeight = First $ Just h }
+
+centerZ :: ExtrudeLinearOpts First
+centerZ = mempty { extrudeLinearOptsCenter = First $ Just True }
+
+scaleFactor :: Double -> ExtrudeLinearOpts First
+scaleFactor s = mempty { extrudeLinearOptsScaleFactor = First $ Just s }
+
+fallbackExtrudeLinearOpts :: ExtrudeLinearOpts Identity
+fallbackExtrudeLinearOpts = ExtrudeLinearOpts {
+  extrudeLinearOptsHeight      = pure defaultLength,
+  extrudeLinearOptsCenter      = pure False,
+  extrudeLinearOptsScaleFactor = pure 1,
+  extrudeLinearOptsTwistAngle  = pure 0,
+  extrudeLinearOptsTwistSlices = pure Auto
 }
 
-instance Semigroup ExtrudeLinearOpts where
-  a <> b = ExtrudeLinearOpts {
-    center = a.center || b.center,
-    scale = case (a.scale, b.scale) of
-      (Nothing, Nothing) -> Nothing
-      (Just s, Nothing) -> Just s
-      (Nothing, Just s) -> Just s
-      (Just s1, Just s2) -> Just s1,
-    twist = case (a.twist, b.twist) of
-      (NoTwist, NoTwist) -> NoTwist
-      (Twist t o, NoTwist) -> Twist t o
-      (NoTwist, Twist t o) -> Twist t o
-      (Twist t1 o1, Twist t2 o2) -> Twist t1 o1
-   }
+twistAngle :: Double -> ExtrudeLinearOpts First
+twistAngle a = mempty { extrudeLinearOptsTwistAngle = First $ Just a }
 
-instance Monoid ExtrudeLinearOpts where
-  mempty = ExtrudeLinearOpts {
-    center = False,
-    scale = Nothing,
-    twist = NoTwist
-  }
+twistSlices :: Int -> ExtrudeLinearOpts First
+twistSlices s = mempty { extrudeLinearOptsTwistSlices = First $ Just (Set s) }
 
-defaultExtrudeLinearOpts :: ExtrudeLinearOpts
-defaultExtrudeLinearOpts = ExtrudeLinearOpts {
-  center = False,
-  scale = Nothing,
-  twist = NoTwist
-}
+twistSlicesAuto :: ExtrudeLinearOpts First
+twistSlicesAuto = mempty { extrudeLinearOptsTwistSlices = First $ Just Auto }
 
-centerExtr :: ExtrudeLinearOpts
-centerExtr = defaultExtrudeLinearOpts { center = True }
-
-scaleFactor :: Double -> ExtrudeLinearOpts
-scaleFactor s = defaultExtrudeLinearOpts { scale = Just s }
-
-twist :: Double -> ExtrudeLinearOpts
-twist a = defaultExtrudeLinearOpts { twist = Twist a Nothing }
-
-twistWithSlices :: Double -> Int -> ExtrudeLinearOpts
-twistWithSlices a s = defaultExtrudeLinearOpts { twist = Twist a (Just s) }
-
-extrudeLineaWith :: (MonadNeon m) => Double -> ExtrudeLinearOpts -> m Model2D -> m Model3D
-extrudeLineaWith height opts modelM = do
+extrudeLinear :: (MonadNeon m) => ExtrudeLinearOpts First -> m Model2D -> m Model3D
+extrudeLinear optsMay modelM = do
   model <- modelM
   facets <- askFacets
   pure $ Extrude3D (LinearExtrude
-    { linearHeight    = height
-    , linearCenter    = if opts.center then Just True else Nothing
-    , linearTwist     = case opts.twist of
-        NoTwist -> Nothing
-        Twist a _ -> Just a
-    , linearScale     = opts.scale
-    , linearSlices    = case opts.twist of
-        Twist _ (Just s) -> Just s
-        _ -> Nothing
+    { linearHeight    = get opts.extrudeLinearOptsHeight
+    , linearCenter    = spareFlag (get opts.extrudeLinearOptsCenter)
+    , linearTwist     = spareOpt (get opts.extrudeLinearOptsTwistAngle) 0
+    , linearScale     = spareOpt (get opts.extrudeLinearOptsScaleFactor) 1
+    , linearSlices    = case get opts.extrudeLinearOptsTwistSlices of
+        Set s -> Just s
+        Auto -> Nothing
     , linearConvexity = Just defaultConvexity
-    , linearFacets    = Just facets
+    , linearFacets    = Nothing
   }) [model]
+  where
+    opts :: ExtrudeLinearOpts Identity
+    opts = bzipWith orDef fallbackExtrudeLinearOpts optsMay
 
-data Twist = NoTwist | Twist {
-  angle :: Double,
-  slices :: Maybe Int
+-------------------------------------------------------------------------------
+
+data ExtrudeRotationalOpts f = ExtrudeRotationalOpts {
+  extrudeRotationalOptsAngle :: f Double,
+  extrudeRotationalOptsConvexity :: f Int,
+  extrudeRotationalOptsFacets :: f Facets
+} 
+  deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
+
+deriving via Generically (ExtrudeRotationalOpts First)
+  instance Semigroup (ExtrudeRotationalOpts First)
+
+deriving via Generically (ExtrudeRotationalOpts First)
+  instance Monoid (ExtrudeRotationalOpts First)
+
+fallbackExtrudeRotationalOpts :: Facets -> ExtrudeRotationalOpts Identity
+fallbackExtrudeRotationalOpts fc = ExtrudeRotationalOpts {
+  extrudeRotationalOptsAngle = pure 360,
+  extrudeRotationalOptsConvexity = pure defaultConvexity,
+  extrudeRotationalOptsFacets = pure fc
 }
 
-----
+extrudeRotational :: (MonadNeon m) => ExtrudeRotationalOpts First -> m Model2D -> m Model3D
+extrudeRotational optsMay modelM = do
+  model <- modelM
+  facets <- askFacets
+  
+  let opts :: ExtrudeRotationalOpts Identity
+      opts = bzipWith orDef (fallbackExtrudeRotationalOpts facets) optsMay
 
-extrudeRotational :: (MonadNeon m) => Double -> m Model2D -> m Model3D
-extrudeRotational = undefined
+  pure $ Extrude3D (RotateExtrude
+    { rotateAngle = get opts.extrudeRotationalOptsAngle
+    , rotateConvexity = Just (get opts.extrudeRotationalOptsConvexity)
+    , rotateFacets = Just (get opts.extrudeRotationalOptsFacets)
+    })
+    [model]
+
+----
 
 project :: (MonadNeon m) => m Model3D -> m Model2D
 project = undefined
@@ -1578,8 +1644,8 @@ spareOpt x y = if x == y then Nothing else Just x
 spareFlag :: Bool -> Maybe Bool
 spareFlag b = spareOpt b False
 
-orDef :: a -> First a -> Identity a
-orDef def opt = pure $ fromMaybe def (getFirst opt)
+orDef :: Identity a -> First a -> Identity a
+orDef def opt = pure $ fromMaybe (runIdentity def) (getFirst opt)
 
 mappendFirst :: Maybe a -> Maybe a -> Maybe a
 mappendFirst a b = getFirst $ First a <> First b
