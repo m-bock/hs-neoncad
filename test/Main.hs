@@ -387,6 +387,15 @@ info3D =
       ]
     )
   ,
+    ( "Cone"
+    ,
+      [
+        ( "Default"
+        , cone mempty
+        )
+      ]
+    )
+  ,
     ( "Cylinder"
     ,
       [

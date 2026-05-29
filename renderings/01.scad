@@ -742,8 +742,48 @@ union(){
                       sphere(d=169.7255068715288, $fa=6, $fs=0.5);
                   }
         }
-      // Cylinder
+      // Cone
       translate(v=[0, 840, 0])
+        union(){
+          translate(v=[-200, 0, 0])
+            scale(v=[2, 2, 2])
+              linear_extrude(height=2, convexity=10)
+                text(text="Cone", $fa=6, $fs=0.5);
+          union()
+            translate(v=[0, 0, 0])
+              // Default
+              union()
+                translate(v=[0, 0, -5])
+                  union(){
+                    // Field
+                    union(){
+                      // Background
+                      color(c=[1, 1, 1], alpha=1)
+                        translate(v=[0, 0, -1])
+                          linear_extrude(height=1, convexity=10)
+                            square(size=[200, 200], center=true);
+                      // Label
+                      translate(v=[-90, -90, 0])
+                        color(c=[0.894, 0.341, 0.337], alpha=1)
+                          linear_extrude(height=1, convexity=10)
+                            text(text="Default", $fa=6, $fs=0.5);
+                      // Axis
+                      color(c=[0.894, 0.341, 0.337], alpha=1)
+                        union(){
+                          // X
+                          cube(size=[1, 200, 1], center=true);
+                          // Y
+                          cube(size=[200, 1, 1], center=true);
+                          // Z
+                          cube(size=[1, 1, 200], center=true);
+                        }
+                    }
+                    // Model
+                    cylinder(h=169.2858015158772, d1=105.80362594742324, d2=66.12726621713952, center=true, $fa=6, $fs=0.5);
+                  }
+        }
+      // Cylinder
+      translate(v=[0, 1050, 0])
         union(){
           translate(v=[-200, 0, 0])
             scale(v=[2, 2, 2])
@@ -783,7 +823,7 @@ union(){
                   }
         }
       // Polyhedron
-      translate(v=[0, 1050, 0])
+      translate(v=[0, 1260, 0])
         union(){
           translate(v=[-200, 0, 0])
             scale(v=[2, 2, 2])

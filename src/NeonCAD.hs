@@ -1008,6 +1008,8 @@ instance HasFacets (CircleOpts First) where
 instance HasPlacement (CircleOpts First) where
   placement v = mempty { circleOptsPlacement = First $ Just v }
 
+instance HasCenter (CircleOpts First) where
+  center = mempty { circleOptsPlacement = First $ Just PlacementCenter }
 
 circle :: (MonadNeon m) => CircleOpts First -> m Model2D
 circle allOpts = do
@@ -1102,6 +1104,9 @@ instance HasPlacement (RectOpts First) where
 instance HasSize (V2 Double) (RectOpts First) where
   size v = mempty { rectOptsSize = First $ Just v }
 
+instance HasCenter (RectOpts First) where
+  center = mempty { rectOptsPlacement = First $ Just PlacementCenter }
+
 rect :: MonadNeon m => RectOpts First -> m Model2D
 rect opts = pure $ Primitive2D $ Square2D
   { squareSize = get opt.rectOptsSize
@@ -1132,6 +1137,8 @@ deriving via Generically (SquareOpts First)
 deriving via Generically (SquareOpts First)
   instance Monoid (SquareOpts First)
 
+instance HasCenter (SquareOpts First) where
+  center = mempty { squareOptsPlacement = First $ Just PlacementCenter }
 
 fallbackSquareOpts :: SquareOpts Identity
 fallbackSquareOpts = SquareOpts {
@@ -1479,10 +1486,13 @@ instance HasPlacement (ConeOpts First) where
 instance HasFacets (ConeOpts First) where
   facets v = mempty { coneOptsFacets = First $ Just v }
 
-defaultConeDiameterTop = 20
-defaultConeDiameterBottom = 30
+defaultConeRadiusTop = (3 * defaultVolume / (2 * pi * (defaultRatio ^ 2) * (1 + defaultRatio + defaultRatio ^ 2))) ** (1/3)
+defaultConeDiameterTop = defaultConeRadiusTop * 2
 
-defaultConeHeight = 100
+defaultConeRadiusBottom = defaultConeRadiusTop * defaultRatio
+defaultConeDiameterBottom = defaultConeRadiusBottom * 2
+
+defaultConeHeight = defaultConeDiameterBottom * defaultRatio
 
 fallbackConeOpts :: Facets -> ConeOpts Identity
 fallbackConeOpts fc = ConeOpts {
@@ -1505,8 +1515,8 @@ cone optsMay = do
     , cylinderCenter    = case get opts.coneOptsPlacement of
         PlacementCenter -> Just True
         PlacementOrigin -> Nothing
-    , cylinderDiameter1 = get opts.coneOptsDiameterTop
-    , cylinderDiameter2 = get opts.coneOptsDiameterBottom
+    , cylinderDiameter1 = get opts.coneOptsDiameterBottom
+    , cylinderDiameter2 = get opts.coneOptsDiameterTop
     , cylinderFacets    = Just (get opts.coneOptsFacets)
     }
 
