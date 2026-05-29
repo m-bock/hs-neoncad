@@ -742,13 +742,13 @@ union(){
                       sphere(d=169.7255068715288, $fa=6, $fs=0.5);
                   }
         }
-      // Cone
+      // Frustum
       translate(v=[0, 840, 0])
         union(){
           translate(v=[-200, 0, 0])
             scale(v=[2, 2, 2])
               linear_extrude(height=2, convexity=10)
-                text(text="Cone", $fa=6, $fs=0.5);
+                text(text="Frustum", $fa=6, $fs=0.5);
           union()
             translate(v=[0, 0, 0])
               // Default

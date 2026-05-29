@@ -387,11 +387,11 @@ info3D =
       ]
     )
   ,
-    ( "Cone"
+    ( "Frustum"
     ,
       [
         ( "Default"
-        , cone mempty
+        , frustum mempty
         )
       ]
     )

@@ -67,7 +67,7 @@ module NeonCAD (
   fn, fa, fs, defaultFacets,
   askFacets, localFacets,
   Model2D, Model3D, V2, V3, Facets,
-  MonadNeon, diameterTop, diameterBottom, cone, scaleFactor, twistAngle, twistSlices, twistSlicesAuto
+  MonadNeon, diameterTop, diameterBottom, frustum, scaleFactor, twistAngle, twistSlices, twistSlicesAuto
 ) where
 
 -------------------------------------------------------------------------------
@@ -1450,74 +1450,74 @@ cube optsMay = pure $ Primitive3D $ Cube3D
 
 
 -------------------------------------------------------------------------------
--- / 3D / Primitive / Cone
+-- / 3D / Primitive / Frustum
 -------------------------------------------------------------------------------
 
-data ConeOpts f = ConeOpts {
-  coneOptsHeight         :: f Double,
-  coneOptsDiameterTop    :: f Double,
-  coneOptsDiameterBottom :: f Double,
-  coneOptsPlacement      :: f Placement,
-  coneOptsFacets         :: f Facets
+data FrustumOpts f = FrustumOpts {
+  frustumOptsHeight         :: f Double,
+  frustumOptsDiameterTop    :: f Double,
+  frustumOptsDiameterBottom :: f Double,
+  frustumOptsPlacement      :: f Placement,
+  frustumOptsFacets         :: f Facets
 } 
   deriving
     ( Generic
     , FunctorB, TraversableB, ApplicativeB, ConstraintsB
     )
 
-deriving via Generically (ConeOpts First)
-  instance Semigroup (ConeOpts First)
+deriving via Generically (FrustumOpts First)
+  instance Semigroup (FrustumOpts First)
 
-deriving via Generically (ConeOpts First)
-  instance Monoid (ConeOpts First)
+deriving via Generically (FrustumOpts First)
+  instance Monoid (FrustumOpts First)
 
-instance HasHeight (ConeOpts First) where
-  height v = mempty { coneOptsHeight = First $ Just v }
+instance HasHeight (FrustumOpts First) where
+  height v = mempty { frustumOptsHeight = First $ Just v }
 
-diameterTop :: Double -> ConeOpts First
-diameterTop d = mempty { coneOptsDiameterTop = First $ Just d }
+diameterTop :: Double -> FrustumOpts First
+diameterTop d = mempty { frustumOptsDiameterTop = First $ Just d }
 
-diameterBottom :: Double -> ConeOpts First
-diameterBottom d = mempty { coneOptsDiameterBottom = First $ Just d }
+diameterBottom :: Double -> FrustumOpts First
+diameterBottom d = mempty { frustumOptsDiameterBottom = First $ Just d }
 
-instance HasPlacement (ConeOpts First) where
-  placement v = mempty { coneOptsPlacement = First $ Just v }
+instance HasPlacement (FrustumOpts First) where
+  placement v = mempty { frustumOptsPlacement = First $ Just v }
 
-instance HasFacets (ConeOpts First) where
-  facets v = mempty { coneOptsFacets = First $ Just v }
+instance HasFacets (FrustumOpts First) where
+  facets v = mempty { frustumOptsFacets = First $ Just v }
 
-defaultConeRadiusTop = (3 * defaultVolume / (2 * pi * (defaultRatio ^ 2) * (1 + defaultRatio + defaultRatio ^ 2))) ** (1/3)
-defaultConeDiameterTop = defaultConeRadiusTop * 2
+defaultFrustumRadiusTop = (3 * defaultVolume / (2 * pi * (defaultRatio ^ 2) * (1 + defaultRatio + defaultRatio ^ 2))) ** (1/3)
+defaultFrustumDiameterTop = defaultFrustumRadiusTop * 2
 
-defaultConeRadiusBottom = defaultConeRadiusTop * defaultRatio
-defaultConeDiameterBottom = defaultConeRadiusBottom * 2
+defaultFrustumRadiusBottom = defaultFrustumRadiusTop * defaultRatio
+defaultFrustumDiameterBottom = defaultFrustumRadiusBottom * 2
 
-defaultConeHeight = defaultConeDiameterBottom * defaultRatio
+defaultFrustumHeight = defaultFrustumDiameterBottom * defaultRatio
 
-fallbackConeOpts :: Facets -> ConeOpts Identity
-fallbackConeOpts fc = ConeOpts {
-  coneOptsHeight         = pure defaultConeHeight,
-  coneOptsDiameterTop    = pure defaultConeDiameterTop,
-  coneOptsDiameterBottom = pure defaultConeDiameterBottom,
-  coneOptsPlacement      = pure PlacementCenter,
-  coneOptsFacets         = pure fc
+fallbackFrustumOpts :: Facets -> FrustumOpts Identity
+fallbackFrustumOpts fc = FrustumOpts {
+  frustumOptsHeight         = pure defaultFrustumHeight,
+  frustumOptsDiameterTop    = pure defaultFrustumDiameterTop,
+  frustumOptsDiameterBottom = pure defaultFrustumDiameterBottom,
+  frustumOptsPlacement      = pure PlacementCenter,
+  frustumOptsFacets         = pure fc
 }
 
-cone :: MonadNeon m => ConeOpts First -> m Model3D
-cone optsMay = do
+frustum :: MonadNeon m => FrustumOpts First -> m Model3D
+frustum optsMay = do
   fc <- askFacets
   let
-    opts :: ConeOpts Identity
-    opts = bzipWith orDef (fallbackConeOpts fc) optsMay
+    opts :: FrustumOpts Identity
+    opts = bzipWith orDef (fallbackFrustumOpts fc) optsMay
 
   pure $ Primitive3D $ Cylinder3D
-    { cylinderHeight    = get opts.coneOptsHeight
-    , cylinderCenter    = case get opts.coneOptsPlacement of
+    { cylinderHeight    = get opts.frustumOptsHeight
+    , cylinderCenter    = case get opts.frustumOptsPlacement of
         PlacementCenter -> Just True
         PlacementOrigin -> Nothing
-    , cylinderDiameter1 = get opts.coneOptsDiameterBottom
-    , cylinderDiameter2 = get opts.coneOptsDiameterTop
-    , cylinderFacets    = Just (get opts.coneOptsFacets)
+    , cylinderDiameter1 = get opts.frustumOptsDiameterBottom
+    , cylinderDiameter2 = get opts.frustumOptsDiameterTop
+    , cylinderFacets    = Just (get opts.frustumOptsFacets)
     }
 
 -------------------------------------------------------------------------------
