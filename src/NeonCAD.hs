@@ -16,8 +16,8 @@ module NeonCAD (
 
   diameter, radius,
   facets,
-  center, corner,
-  scale,
+  center, origin,
+  scale, scaleXYZ, scaleXY, scaleXZ, scaleYZ, scaleX, scaleY, scaleZ,
   size,
   HasSize, HasPlacement,
   height,
@@ -39,8 +39,11 @@ module NeonCAD (
   sphere,
   ellipsoid,
   cylinder,
+  polyhedron,
 
   empty,
+
+  left, right,
 
   -- Transform
   union, unions,
@@ -64,7 +67,7 @@ module NeonCAD (
   fn, fa, fs, defaultFacets,
   askFacets, localFacets,
   Model2D, Model3D, V2, V3, Facets,
-  MonadNeon
+  MonadNeon, diameterTop, diameterBottom, cone, scaleFactor, twistAngle, twistSlices, twistSlicesAuto
 ) where
 
 -------------------------------------------------------------------------------
@@ -142,30 +145,17 @@ defaultSquareSize :: Double
 defaultSquareSize = sqrt defaultArea
 
 defaultPolygonPoints :: [V2 Double]
-defaultPolygonPoints = scalePolygonToArea defaultArea
-  [ (-50, -50)
-  , (-10, -40)
-  , ( 30, -50)
-  , ( 50, -10)
-  , ( 10,   0)
-  , ( 50,  50)
-  , (-40,  30)
-  ] 
-
-scalePolygonToArea :: Double -> [V2 Double] -> [V2 Double]
-scalePolygonToArea targetArea ps =
-  map scalePoint ps
+defaultPolygonPoints = map (\(x, y) -> (x * l, y * l))
+  [ ( 0,  1)
+  , ( 1,  1)
+  , ( 1,  0)
+  , ( 0, -1)
+  , (-1, -1)
+  , (-1,  0)
+  ]
   where
-    currentArea = polygonArea ps
-    s = sqrt (targetArea / currentArea)
+    l = sqrt (defaultArea / 3)
 
-    scalePoint (x, y) = (x * s, y * s)
-
-polygonArea :: [V2 Double] -> Double
-polygonArea ps =
-  abs (sum (zipWith cross ps (tail (cycle ps)))) / 2
-  where
-    cross (x1, y1) (x2, y2) = x1 * y2 - y1 * x2
 
 -- * 3D
 
@@ -207,6 +197,21 @@ defaultCylinderDiameter = 2 * defaultCylinderRadius
 defaultCylinderHeight :: Double
 defaultCylinderHeight = defaultCylinderRadius * defaultRatio 
 
+
+defaultPolyhedronPoints :: [V3 Double]
+defaultPolyhedronPoints = map (\(x, y, z) -> (x * 70, y * 70, z * 50))
+  [ (  0, -1, -1)
+  , ( -1,  0, -1)
+  , (  1,  0, -1)
+  , (  1,  0,  1)
+  , (  0,  1,  1)
+  , ( -1,  0,  1)
+  ]
+
+defaultPolyhedronFaces :: [V3 Int]
+defaultPolyhedronFaces = 
+  [ (0, 1, 2), (3, 5, 4), (0, 1, 5), (0, 2, 3), (3, 5, 0), (2, 1, 4), (1, 5, 4), (2, 3, 4) ]
+
 -------------------------------------------------------------------------------
 -- / Monad
 -------------------------------------------------------------------------------
@@ -220,7 +225,7 @@ runNeonT :: Facets -> NeonT m a -> m a
 runNeonT factes (NeonT f) = f factes
 
 runNeonM :: Facets -> NeonM a -> a
-runNeonM facets neon = get $ runNeonT facets neon
+runNeonM fcs neon = get $ runNeonT fcs neon
 
 instance (Monad m) => Applicative (NeonT m) where
   pure x = NeonT $ \_ -> pure x
@@ -232,7 +237,7 @@ instance (Monad m) => Monad (NeonT m) where
 
 instance Monad m => MonadNeon (NeonT m) where
   askFacets = NeonT pure
-  localFacets facets m = NeonT $ \_ -> runNeonT facets m
+  localFacets fcs m = NeonT $ \_ -> runNeonT fcs m
 
 -------------------------------------------------------------------------------
 -- / Facets
@@ -261,16 +266,30 @@ class (Monad m) => MonadNeon m where
 -- / Classes / HasPlacement
 -------------------------------------------------------------------------------
 
-data Placement = PlacementCenter | PlacementCorner
+data Placement = PlacementCenter | PlacementOrigin
 
 class HasPlacement a where
   placement :: Placement -> a
 
-center :: HasPlacement a => a
-center = placement PlacementCenter
+origin :: HasPlacement a => a
+origin = placement PlacementOrigin
 
-corner :: HasPlacement a => a
-corner = placement PlacementCorner
+-------------------------------------------------------------------------------
+-- / Classes / HasCenter
+-------------------------------------------------------------------------------
+
+class HasCenter a where
+  center :: a
+
+instance HasCenter Placement where
+  center = PlacementCenter
+
+-------------------------------------------------------------------------------
+-- / Classes / HasHeight
+-------------------------------------------------------------------------------
+
+class HasHeight a where
+  height :: Double -> a
 
 -------------------------------------------------------------------------------
 -- / Classes / HasDiameter
@@ -288,6 +307,13 @@ radius r = diameter (r * 2)
 
 class HasFacets a where
   facets :: Facets -> a
+
+-------------------------------------------------------------------------------
+-- / Classes / HasPoints
+-------------------------------------------------------------------------------
+
+class HasPoints v a | a -> v where
+  points :: v -> a
 
 -------------------------------------------------------------------------------
 -- / Classes / HasSize
@@ -874,6 +900,10 @@ instance (MonadNeon m) => Intersection (m Model3D) where
     modelB <- modelBM
     pure $ BoolOp3D Intersection3D [modelA, modelB]
 
+  intersections modelsM = do
+    models <- sequence modelsM
+    pure $ BoolOp3D Intersection3D models
+
 -------------------------------------------------------------------------------
 -- / Classes / Difference
 -------------------------------------------------------------------------------
@@ -991,7 +1021,7 @@ circle allOpts = do
 
     handlePlacement m = case get opts.circleOptsPlacement of
       PlacementCenter -> m
-      PlacementCorner -> moveXY (r, r) m
+      PlacementOrigin -> moveXY (r, r) m
 
   handlePlacement $ pure $ Primitive2D $ Circle2D
     { circleDiameter = get opts.circleOptsDiameter
@@ -1003,9 +1033,9 @@ circle allOpts = do
 -------------------------------------------------------------------------------
 
 data EllipseOpts f = EllipseOpts {
-  ellipseOptsSize :: f (V2 Double),
+  ellipseOptsSize      :: f (V2 Double),
   ellipseOptsPlacement :: f Placement,
-  ellipseOptsFacets :: f Facets
+  ellipseOptsFacets    :: f Facets
 }  deriving
     ( Generic
     , FunctorB, TraversableB, ApplicativeB, ConstraintsB
@@ -1021,12 +1051,11 @@ fallbackEllipseOpts :: Facets -> EllipseOpts Identity
 fallbackEllipseOpts fc = EllipseOpts {
   ellipseOptsSize      = pure defaultEllipseSize,
   ellipseOptsPlacement = pure PlacementCenter,
-  ellipseOptsFacets = pure fc
+  ellipseOptsFacets    = pure fc
 }
 
 ellipse :: MonadNeon m => EllipseOpts First -> m Model2D
 ellipse optsMay = do
-  
   fc <- askFacets
   let
     opts :: EllipseOpts Identity
@@ -1036,9 +1065,11 @@ ellipse optsMay = do
 
     handlePlacement m = case get opts.ellipseOptsPlacement of
       PlacementCenter -> m
-      PlacementCorner -> moveXY (dx, dy) m
+      PlacementOrigin -> moveXY (dx, dy) m
 
-  handlePlacement $ resizeXY (dx, dy) $ circle (diameter (max dx dy) <> facets (get opts.ellipseOptsFacets))
+  handlePlacement $
+    resizeXY (dx, dy) $
+      circle (diameter (max dx dy) <> facets (get opts.ellipseOptsFacets))
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Rect
@@ -1076,7 +1107,7 @@ rect opts = pure $ Primitive2D $ Square2D
   { squareSize = get opt.rectOptsSize
   , squareCenter = case get opt.rectOptsPlacement of
       PlacementCenter -> Just True
-      PlacementCorner -> Nothing
+      PlacementOrigin -> Nothing
   }
   where
     opt :: RectOpts Identity
@@ -1087,7 +1118,7 @@ rect opts = pure $ Primitive2D $ Square2D
 -------------------------------------------------------------------------------
 
 data SquareOpts f = SquareOpts {
-  squareOptsSize :: f Double,
+  squareOptsSize      :: f Double,
   squareOptsPlacement :: f Placement
 }
   deriving
@@ -1104,7 +1135,7 @@ deriving via Generically (SquareOpts First)
 
 fallbackSquareOpts :: SquareOpts Identity
 fallbackSquareOpts = SquareOpts {
-  squareOptsSize = pure defaultSquareSize,
+  squareOptsSize      = pure defaultSquareSize,
   squareOptsPlacement = pure PlacementCenter
 }
 
@@ -1119,7 +1150,7 @@ square optsMay = pure $ Primitive2D $ Square2D
   { squareSize   = (s, s)
   , squareCenter = case get opts.squareOptsPlacement of
       PlacementCenter -> Just True
-      PlacementCorner -> Nothing
+      PlacementOrigin -> Nothing
   }
   where
     opts :: SquareOpts Identity
@@ -1134,7 +1165,7 @@ square optsMay = pure $ Primitive2D $ Square2D
 -- Maybe in the future paths can be added for ergonomics if needed.
 
 data PolygonOpts f = PolygonOpts {
-  polygonOptsPoints :: f [V2 Double],
+  polygonOptsPoints    :: f [V2 Double],
   polygonOptsConvexity :: f Int,
   polygonOptsPlacement :: f Placement
 } 
@@ -1149,8 +1180,8 @@ deriving via Generically (PolygonOpts First)
 deriving via Generically (PolygonOpts First)
   instance Monoid (PolygonOpts First)
 
-points :: [V2 Double] -> PolygonOpts First
-points ps = mempty { polygonOptsPoints = First $ Just ps }
+instance HasPoints [V2 Double] (PolygonOpts First) where
+  points v = mempty { polygonOptsPoints = First $ Just v }
 
 convexity :: Int -> PolygonOpts First
 convexity c = mempty { polygonOptsConvexity = First $ Just c }
@@ -1160,16 +1191,16 @@ instance HasPlacement (PolygonOpts First) where
 
 fallbackPolygonOpts :: PolygonOpts Identity
 fallbackPolygonOpts = PolygonOpts {
-  polygonOptsPoints = pure defaultPolygonPoints,
+  polygonOptsPoints    = pure defaultPolygonPoints,
   polygonOptsConvexity = pure defaultConvexity,
   polygonOptsPlacement = pure PlacementCenter
 }
 
 polygon :: MonadNeon m => PolygonOpts First -> m Model2D
 polygon optsMay = pure $ Primitive2D $ Polygon2D
-  { polygonPoints = get opts.polygonOptsPoints
+  { polygonPoints    = get opts.polygonOptsPoints
   , polygonConvexity = Just $ get opts.polygonOptsConvexity
-  , polygonPaths = Nothing
+  , polygonPaths     = Nothing
   }
   where
     opts :: PolygonOpts Identity
@@ -1180,14 +1211,14 @@ polygon optsMay = pure $ Primitive2D $ Polygon2D
 -------------------------------------------------------------------------------
 
 data TextOpts f = TextOpts {
-  textOptsText :: f String,
-  textOptsFont :: f FontName,
-  textOptsSize :: f Double,
-  textOptsStyle :: f FontStyle,
+  textOptsText      :: f String,
+  textOptsFont      :: f FontName,
+  textOptsSize      :: f Double,
+  textOptsStyle     :: f FontStyle,
   textOptsDirection :: f Direction,
-  textOptsHAlign :: f HorizontalAlignment,
-  textOptsVAlign :: f VerticalAlignment,
-  textOptsSpacing :: f Double
+  textOptsHAlign    :: f HorizontalAlignment,
+  textOptsVAlign    :: f VerticalAlignment,
+  textOptsSpacing   :: f Double
 } 
   deriving
     ( Generic
@@ -1201,25 +1232,34 @@ deriving via Generically (TextOpts First)
   instance Monoid (TextOpts First)
 
 fontName :: FontName -> TextOpts First
-fontName fn = mempty { textOptsFont = First $ Just fn }
+fontName n = mempty { textOptsFont = First $ Just n }
 
 fontStyle :: FontStyle -> TextOpts First
-fontStyle fs = mempty { textOptsStyle = First $ Just fs }
+fontStyle s = mempty { textOptsStyle = First $ Just s }
 
 fontSize :: Double -> TextOpts First
-fontSize size = mempty { textOptsSize = First $ Just size }
+fontSize s = mempty { textOptsSize = First $ Just s }
 
 direction :: Direction -> TextOpts First
 direction dir = mempty { textOptsDirection = First $ Just dir }
 
 hAlign :: HorizontalAlignment -> TextOpts First
-hAlign hAlign = mempty { textOptsHAlign = First $ Just hAlign }
+hAlign ha = mempty { textOptsHAlign = First $ Just ha }
+
+left :: HorizontalAlignment
+left = HALeft
+
+instance HasCenter HorizontalAlignment where
+  center = HACenter
+
+right :: HorizontalAlignment
+right = HARight
 
 vAlign :: VerticalAlignment -> TextOpts First
-vAlign vAlign = mempty { textOptsVAlign = First $ Just vAlign }
+vAlign va = mempty { textOptsVAlign = First $ Just va }
 
 fontSpacing :: Double -> TextOpts First
-fontSpacing spacing = mempty { textOptsSpacing = First $ Just spacing }
+fontSpacing s = mempty { textOptsSpacing = First $ Just s }
 
 str :: String -> TextOpts First
 str s = mempty { textOptsText = First $ Just s }
@@ -1227,14 +1267,14 @@ str s = mempty { textOptsText = First $ Just s }
 
 fallbackTextOpts :: TextOpts Identity
 fallbackTextOpts = TextOpts {
-  textOptsText = pure "Hello, World!",
-  textOptsFont = pure FNLiberationSans,
-  textOptsSize = pure 10,
-  textOptsStyle = pure FSRegular,
+  textOptsText      = pure "Hello, World!",
+  textOptsFont      = pure FNLiberationSans,
+  textOptsSize      = pure 10,
+  textOptsStyle     = pure FSRegular,
   textOptsDirection = pure LeftToRight,
-  textOptsHAlign = pure HALeft,
-  textOptsVAlign = pure VABaseline,
-  textOptsSpacing = pure 1
+  textOptsHAlign    = pure HALeft,
+  textOptsVAlign    = pure VABaseline,
+  textOptsSpacing   = pure 1
 }
 
 data FontName
@@ -1266,33 +1306,33 @@ fontStyleToString = \case
   FSBoldItalic -> "Bold Italic"
 
 mkFont :: Maybe FontName -> Maybe FontStyle -> Maybe Font
-mkFont fontName style = case (fontName, style) of
+mkFont fontNameMay style = case (fontNameMay, style) of
   (Nothing, Nothing) -> Nothing
-  (Just fontName, mayStyle) -> Just $ Font
-    { fontFamily = fontNameToString fontName
+  (Just n, mayStyle) -> Just $ Font
+    { fontFamily = fontNameToString n
     , fontOptions = case mayStyle of
-      Just style -> [("style", fontStyleToString style)]
+      Just s  -> [("style", fontStyleToString s)]
       Nothing -> []
     }
   (Nothing, mayStyle) -> mkFont (Just FNLiberationSans) mayStyle
 
 text :: MonadNeon m => TextOpts First -> m Model2D
 text optsMay = do
-  facets <- askFacets
+  fc <- askFacets
   pure $ Primitive2D $ Text2D
-    { textText = get opts.textOptsText
-    , textSize = fmap get $ spareOpt opts.textOptsSize 10
-    , textFont = mkFont
+    { textText      = get opts.textOptsText
+    , textSize      = fmap get $ spareOpt opts.textOptsSize 10
+    , textFont      = mkFont
         (fmap get $ spareOpt opts.textOptsFont (pure FNLiberationSans))
         (fmap get $ spareOpt opts.textOptsStyle (pure FSRegular))
     , textDirection = fmap get $ spareOpt opts.textOptsDirection (pure LeftToRight)
-    , textHAlign = fmap get $ spareOpt opts.textOptsHAlign (pure HALeft)
-    , textVAlign = fmap get $ spareOpt opts.textOptsVAlign (pure VABaseline)
-    , textSpacing = fmap get $ spareOpt opts.textOptsSpacing (pure 1)
-    , textEm = Nothing
-    , textFacets = Just facets
-    , textLanguage = Nothing
-    , textScript = Nothing
+    , textHAlign    = fmap get $ spareOpt opts.textOptsHAlign (pure HALeft)
+    , textVAlign    = fmap get $ spareOpt opts.textOptsVAlign (pure VABaseline)
+    , textSpacing   = fmap get $ spareOpt opts.textOptsSpacing (pure 1)
+    , textEm        = Nothing
+    , textFacets    = Just fc
+    , textLanguage  = Nothing
+    , textScript    = Nothing
     }
   where
     opts :: TextOpts Identity
@@ -1306,7 +1346,7 @@ offset :: (MonadNeon m) => Double -> m Model2D -> m Model2D
 offset d modelM = do
   model <- modelM
   pure $ Transform2D (OffsetDelta2D
-    { offsetDeltaDelta = d
+    { offsetDeltaDelta   = d
     , offsetDeltaChamfer = Nothing
     }) [model]
 
@@ -1321,7 +1361,7 @@ offsetCut = undefined
 -------------------------------------------------------------------------------
 
 data BoxOpts f = BoxOpts {
-  boxOptsSize :: f (V3 Double),
+  boxOptsSize      :: f (V3 Double),
   boxOptsPlacement :: f Placement
 } 
   deriving
@@ -1338,7 +1378,7 @@ deriving via Generically (BoxOpts First)
 
 fallbackBoxOpts :: BoxOpts Identity
 fallbackBoxOpts = BoxOpts {
-  boxOptsSize = pure defaultBoxSize,
+  boxOptsSize      = pure defaultBoxSize,
   boxOptsPlacement = pure PlacementCenter
 }
 
@@ -1353,7 +1393,7 @@ box optsMay = pure $ Primitive3D $ Cube3D
   { cubeSize = get opts.boxOptsSize
   , cubeCenter = case get opts.boxOptsPlacement of
       PlacementCenter -> Just True
-      PlacementCorner -> Nothing
+      PlacementOrigin -> Nothing
   }
   where
     opts :: BoxOpts Identity
@@ -1364,7 +1404,7 @@ box optsMay = pure $ Primitive3D $ Cube3D
 -------------------------------------------------------------------------------
 
 data CubeOpts f = CubeOpts {
-  cubeOptsSize :: f Double,
+  cubeOptsSize      :: f Double,
   cubeOptsPlacement :: f Placement
 } 
   deriving
@@ -1381,7 +1421,7 @@ deriving via Generically (CubeOpts First)
 
 fallbackCubeOpts :: CubeOpts Identity
 fallbackCubeOpts = CubeOpts {
-  cubeOptsSize = pure defaultCubeSize,
+  cubeOptsSize      = pure defaultCubeSize,
   cubeOptsPlacement = pure PlacementCenter
 }
 
@@ -1393,7 +1433,7 @@ cube optsMay = pure $ Primitive3D $ Cube3D
   { cubeSize = (s, s, s)
   , cubeCenter = case get opts.cubeOptsPlacement of
       PlacementCenter -> Just True
-      PlacementCorner -> Nothing
+      PlacementOrigin -> Nothing
   }
   where
     s = get opts.cubeOptsSize
@@ -1406,7 +1446,69 @@ cube optsMay = pure $ Primitive3D $ Cube3D
 -- / 3D / Primitive / Cone
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+data ConeOpts f = ConeOpts {
+  coneOptsHeight         :: f Double,
+  coneOptsDiameterTop    :: f Double,
+  coneOptsDiameterBottom :: f Double,
+  coneOptsPlacement      :: f Placement,
+  coneOptsFacets         :: f Facets
+} 
+  deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
+
+deriving via Generically (ConeOpts First)
+  instance Semigroup (ConeOpts First)
+
+deriving via Generically (ConeOpts First)
+  instance Monoid (ConeOpts First)
+
+instance HasHeight (ConeOpts First) where
+  height v = mempty { coneOptsHeight = First $ Just v }
+
+diameterTop :: Double -> ConeOpts First
+diameterTop d = mempty { coneOptsDiameterTop = First $ Just d }
+
+diameterBottom :: Double -> ConeOpts First
+diameterBottom d = mempty { coneOptsDiameterBottom = First $ Just d }
+
+instance HasPlacement (ConeOpts First) where
+  placement v = mempty { coneOptsPlacement = First $ Just v }
+
+instance HasFacets (ConeOpts First) where
+  facets v = mempty { coneOptsFacets = First $ Just v }
+
+defaultConeDiameterTop = 20
+defaultConeDiameterBottom = 30
+
+defaultConeHeight = 100
+
+fallbackConeOpts :: Facets -> ConeOpts Identity
+fallbackConeOpts fc = ConeOpts {
+  coneOptsHeight         = pure defaultConeHeight,
+  coneOptsDiameterTop    = pure defaultConeDiameterTop,
+  coneOptsDiameterBottom = pure defaultConeDiameterBottom,
+  coneOptsPlacement      = pure PlacementCenter,
+  coneOptsFacets         = pure fc
+}
+
+cone :: MonadNeon m => ConeOpts First -> m Model3D
+cone optsMay = do
+  fc <- askFacets
+  let
+    opts :: ConeOpts Identity
+    opts = bzipWith orDef (fallbackConeOpts fc) optsMay
+
+  pure $ Primitive3D $ Cylinder3D
+    { cylinderHeight    = get opts.coneOptsHeight
+    , cylinderCenter    = case get opts.coneOptsPlacement of
+        PlacementCenter -> Just True
+        PlacementOrigin -> Nothing
+    , cylinderDiameter1 = get opts.coneOptsDiameterTop
+    , cylinderDiameter2 = get opts.coneOptsDiameterBottom
+    , cylinderFacets    = Just (get opts.coneOptsFacets)
+    }
 
 -------------------------------------------------------------------------------
 -- / 3D / Primitive / Cylinder
@@ -1429,6 +1531,18 @@ deriving via Generically (CylinderOpts First)
 deriving via Generically (CylinderOpts First)
   instance Monoid (CylinderOpts First)
 
+instance HasHeight (CylinderOpts First) where
+  height v = mempty { cylinderOptsHeight = First $ Just v }
+
+instance HasDiameter (CylinderOpts First) where
+  diameter v = mempty { cylinderOptsDiameter = First $ Just v }
+
+instance HasPlacement (CylinderOpts First) where
+  placement v = mempty { cylinderOptsPlacement = First $ Just v }
+
+instance HasFacets (CylinderOpts First) where
+  facets v = mempty { cylinderOptsFacets = First $ Just v }
+
 fallbackCylinderOpts :: Facets -> CylinderOpts Identity
 fallbackCylinderOpts fc = CylinderOpts {
   cylinderOptsHeight    = pure defaultCylinderHeight,
@@ -1449,7 +1563,7 @@ cylinder optsMay = do
     { cylinderHeight = get opts.cylinderOptsHeight
     , cylinderCenter = case get opts.cylinderOptsPlacement of
       PlacementCenter -> Just True
-      PlacementCorner -> Nothing
+      PlacementOrigin -> Nothing
     , cylinderDiameter1 = dia
     , cylinderDiameter2 = dia
     , cylinderFacets = Just (get opts.cylinderOptsFacets)
@@ -1505,7 +1619,7 @@ sphere optsMay = do
 
     handlePlacement m = case get opts.sphereOptsPlacement of
       PlacementCenter -> m
-      PlacementCorner -> moveXYZ (r, r, r) m
+      PlacementOrigin -> moveXYZ (r, r, r) m
 
   handlePlacement $ pure $ Primitive3D $ Sphere3D
     { sphereDiameter = d
@@ -1558,7 +1672,7 @@ ellipsoid optsMay = do
     
     handlePlacement m = case get opts.ellipsoidOptsPlacement of
       PlacementCenter -> m
-      PlacementCorner -> moveXYZ (dx, dy, dz) m
+      PlacementOrigin -> moveXYZ (dx, dy, dz) m
 
   handlePlacement $ resizeXYZ (dx, dy, dz) $ pure $ Primitive3D $ Sphere3D
     { sphereDiameter = dmax
@@ -1569,7 +1683,48 @@ ellipsoid optsMay = do
 -- / 3D / Primitive / Polyhedron
 -------------------------------------------------------------------------------
 
--- TODO: Implement
+data PolyhedronOpts f = PolyhedronOpts {
+  polyhedronOptsPoints :: f [V3 Double],
+  polyhedronOptsFaces  :: f [V3 Int],
+  polyhedronOptsConvexity :: f Int
+} 
+  deriving
+    ( Generic
+    , FunctorB, TraversableB, ApplicativeB, ConstraintsB
+    )
+
+deriving via Generically (PolyhedronOpts First)
+  instance Semigroup (PolyhedronOpts First)
+
+deriving via Generically (PolyhedronOpts First)
+  instance Monoid (PolyhedronOpts First)
+
+instance HasPoints [V3 Double] (PolyhedronOpts First) where
+  points v = mempty { polyhedronOptsPoints = First $ Just v }
+
+faces :: [V3 Int] -> PolyhedronOpts First
+faces fc = mempty { polyhedronOptsFaces = First $ Just fc }
+
+
+fallbackPolyhedronOpts :: PolyhedronOpts Identity
+fallbackPolyhedronOpts = PolyhedronOpts {
+  polyhedronOptsPoints = pure defaultPolyhedronPoints,
+  polyhedronOptsFaces = pure defaultPolyhedronFaces,
+  polyhedronOptsConvexity = pure defaultConvexity
+}
+
+
+polyhedron :: MonadNeon m => PolyhedronOpts First -> m Model3D
+polyhedron optsMay = do
+  let
+    opts :: PolyhedronOpts Identity
+    opts = bzipWith orDef fallbackPolyhedronOpts optsMay
+
+  pure $ Primitive3D $ Polyhedron3D
+    { polyhedronPoints = get opts.polyhedronOptsPoints
+    , polyhedronFaces = Just (map (\(a, b, c) -> [a, b, c]) (get opts.polyhedronOptsFaces))
+    , polyhedronConvexity = Just (get opts.polyhedronOptsConvexity)
+    }
 
 -------------------------------------------------------------------------------
 -- / 2D-3D Conversion
@@ -1595,8 +1750,8 @@ deriving via Generically (ExtrudeLinearOpts First)
 
 data AutoOrSet a = Auto | Set a
 
-height :: Double -> ExtrudeLinearOpts First
-height h = mempty { extrudeLinearOptsHeight = First $ Just h }
+instance HasHeight (ExtrudeLinearOpts First) where
+  height v = mempty { extrudeLinearOptsHeight = First $ Just v }
 
 centerZ :: ExtrudeLinearOpts First
 centerZ = mempty { extrudeLinearOptsCenter = First $ Just True }
@@ -1625,7 +1780,7 @@ twistSlicesAuto = mempty { extrudeLinearOptsTwistSlices = First $ Just Auto }
 extrudeLinear :: (MonadNeon m) => ExtrudeLinearOpts First -> m Model2D -> m Model3D
 extrudeLinear optsMay modelM = do
   model <- modelM
-  facets <- askFacets
+  fc <- askFacets
   pure $ Extrude3D (LinearExtrude
     { linearHeight    = get opts.extrudeLinearOptsHeight
     , linearCenter    = spareFlag (get opts.extrudeLinearOptsCenter)
@@ -1635,7 +1790,7 @@ extrudeLinear optsMay modelM = do
         Set s -> Just s
         Auto -> Nothing
     , linearConvexity = Just defaultConvexity
-    , linearFacets    = Nothing
+    , linearFacets    = Just fc
   }) [model]
   where
     opts :: ExtrudeLinearOpts Identity
@@ -1644,9 +1799,9 @@ extrudeLinear optsMay modelM = do
 -------------------------------------------------------------------------------
 
 data ExtrudeRotationalOpts f = ExtrudeRotationalOpts {
-  extrudeRotationalOptsAngle :: f Double,
+  extrudeRotationalOptsAngle     :: f Double,
   extrudeRotationalOptsConvexity :: f Int,
-  extrudeRotationalOptsFacets :: f Facets
+  extrudeRotationalOptsFacets    :: f Facets
 } 
   deriving
     ( Generic
@@ -1661,9 +1816,9 @@ deriving via Generically (ExtrudeRotationalOpts First)
 
 fallbackExtrudeRotationalOpts :: Facets -> ExtrudeRotationalOpts Identity
 fallbackExtrudeRotationalOpts fc = ExtrudeRotationalOpts {
-  extrudeRotationalOptsAngle = pure 360,
+  extrudeRotationalOptsAngle     = pure 360,
   extrudeRotationalOptsConvexity = pure defaultConvexity,
-  extrudeRotationalOptsFacets = pure fc
+  extrudeRotationalOptsFacets    = pure fc
 }
 
 extrudeRotational :: (MonadNeon m) => ExtrudeRotationalOpts First -> m Model2D -> m Model3D
@@ -1686,6 +1841,8 @@ extrudeRotational optsMay modelM = do
 project :: (MonadNeon m) => m Model3D -> m Model2D
 project = undefined
 
+-- TODO: Implement
+
 -------------------------------------------------------------------------------
 -- / Helpers
 -------------------------------------------------------------------------------
@@ -1698,9 +1855,6 @@ spareFlag b = spareOpt b False
 
 orDef :: Identity a -> First a -> Identity a
 orDef def opt = pure $ fromMaybe (runIdentity def) (getFirst opt)
-
-mappendFirst :: Maybe a -> Maybe a -> Maybe a
-mappendFirst a b = getFirst $ First a <> First b
 
 get :: Identity a -> a
 get = runIdentity

@@ -271,7 +271,7 @@ info2D =
         , unions $
             colorize $
               level
-                [ circle $ diameter 50 <> corner
+                [ circle $ diameter 50 <> origin
                 , circle $ diameter 50 <> center
                 ]
         )
@@ -302,7 +302,7 @@ info2D =
         , unions $
             colorize $
               level
-                [ rect $ size (50, 30) <> corner
+                [ rect $ size (50, 30) <> origin
                 , rect $ size (50, 30) <> center
                 ]
         )
@@ -322,7 +322,7 @@ info2D =
       ,
         ( "placements"
         , unions $
-            [ to3D $ square $ size 50 <> corner
+            [ to3D $ square $ size 50 <> origin
             , to3D $ square $ size 50 <> center
             ]
         )
@@ -392,6 +392,15 @@ info3D =
       [
         ( "Default"
         , cylinder mempty
+        )
+      ]
+    )
+  ,
+    ( "Polyhedron"
+    ,
+      [
+        ( "Default"
+        , polyhedron mempty
         )
       ]
     )
