@@ -1490,7 +1490,7 @@ instance HasFacets (FrustumOpts First) where
   facets v = mempty { frustumOptsFacets = First $ Just v }
 
 defaultFrustumRadiusTop :: Double
-defaultFrustumRadiusTop = (3 * defaultVolume / (2 * pi * (defaultRatio ^ 2) * (1 + defaultRatio + defaultRatio ^ 2))) ** (1/3)
+defaultFrustumRadiusTop = (3 * defaultVolume / (2 * pi * (defaultRatio ^ (2 :: Integer)) * (1 + defaultRatio + defaultRatio ^ (2 :: Integer)))) ** (1/3)
 
 defaultFrustumDiameterTop :: Double
 defaultFrustumDiameterTop = defaultFrustumRadiusTop * 2
