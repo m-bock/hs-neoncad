@@ -1,7 +1,7 @@
 DOC_IMGS_DIR := "out/doc-imgs"
 
 gen-doc-imgs:
-    rm -rf {{DOC_IMGS_DIR}}
+    # rm -rf {{DOC_IMGS_DIR}}
     mkdir -p {{DOC_IMGS_DIR}}
     cabal test
     for img in {{DOC_IMGS_DIR}}/*.scad; do \

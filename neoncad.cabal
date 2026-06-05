@@ -15,16 +15,22 @@ common warnings
 
 common extensions
   default-extensions:
+    DeriveAnyClass
     DeriveFunctor
+    DeriveGeneric
+    DerivingVia
     DuplicateRecordFields
     FlexibleContexts
     FlexibleInstances
     FunctionalDependencies
+    GeneralizedNewtypeDeriving
     LambdaCase
     MultiParamTypeClasses
     NamedFieldPuns
     NoFieldSelectors
     OverloadedRecordDot
+    RankNTypes
+    StandaloneDeriving
 
   default-language: Haskell2010
 
@@ -51,4 +57,5 @@ test-suite hs-openscad-dsl-test
   main-is: Main.hs
   build-depends:
     base ^>=4.17.2.1,
+    doctest,
     neoncad,

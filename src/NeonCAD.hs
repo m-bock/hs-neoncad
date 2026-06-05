@@ -2,25 +2,36 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Eta reduce" #-}
 {-# HLINT ignore "Use <$>" #-}
+
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveFunctor #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NoFieldSelectors #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
 
 module NeonCAD (
-  -- * Hello
+  -- * Basic
   run,
   render2D, render3D,
-  Model2D, Model3D,
   MonadNeon,
 
   -- * 3D Primitives
   -- ** Box
   -- |
   -- ![box](out/doc-imgs/box.png)
+  --
   box, BoxOpts,
 
   -- ** Cube
@@ -49,6 +60,7 @@ module NeonCAD (
   polyhedron, PolyhedronOpts,
 
   -- * Attributes
+  -- |
   HasSize(..),
   HasPlacement(..),
   HasFacets(..),
@@ -56,10 +68,52 @@ module NeonCAD (
   HasFaces(..),
   HasConvexity(..),
   HasPoints(..),
+  HasHeight(..),
 
   -- * Facts
   IsCenter(..),
   IsOrigin(..),
+  IsLeft(..),
+  IsRight(..),
+
+  -- * Modifiers
+  -- ** Move
+  CanMoveXYZ(..),
+  CanMoveXY(..),
+  CanMoveXZ(..),
+  CanMoveYZ(..),
+  CanMoveX(..),
+  CanMoveY(..),
+  CanMoveZ(..),
+
+  -- ** Scale
+  CanScaleXYZ(..),
+  CanScaleXY(..),
+  CanScaleXZ(..),
+  CanScaleYZ(..),
+  CanScaleX(..),
+  CanScaleY(..),
+  CanScaleZ(..),
+  CanScale(..),
+
+  -- ** Resize
+  CanResizeXYZ(..),
+  CanResizeXY(..),
+  CanResizeXZ(..),
+  CanResizeYZ(..),
+  CanResizeX(..),
+  CanResizeY(..),
+  CanResizeZ(..),
+  CanResizeAutoXY(..),
+  CanResizeAutoXZ(..),
+  CanResizeAutoYZ(..),
+  CanResizeAutoX(..),
+  CanResizeAutoY(..),
+  CanResizeAutoZ(..),
+  
+
+  -- * Models
+  Model2D, Model3D,
 
   -- comment,
   -- render2D, render3D,
@@ -310,6 +364,28 @@ fs :: Double -> Facets
 fs d = mempty { fs = Just d }
 
 -------------------------------------------------------------------------------
+-- / Facts
+-------------------------------------------------------------------------------
+
+class IsLeft a where
+  left :: a
+
+instance IsLeft HorizontalAlignment where
+  left = HALeft
+
+class IsRight a where
+  right :: a
+
+instance IsRight HorizontalAlignment where
+  right = HARight
+
+class IsCenter a where
+  center :: a
+
+instance IsCenter HorizontalAlignment where
+  center = HACenter
+
+-------------------------------------------------------------------------------
 -- / Classes
 -------------------------------------------------------------------------------
 
@@ -340,9 +416,6 @@ instance IsOrigin Placement where
 -------------------------------------------------------------------------------
 -- / Classes / IsCenter
 -------------------------------------------------------------------------------
-
-class IsCenter a where
-  center :: a
 
 instance IsCenter Placement where
   center = PlacementCenter
@@ -419,113 +492,113 @@ instance MonadNeon m => Comment (m Model3D) where
     pure $ Comment3D txt model
 
 -------------------------------------------------------------------------------
--- / Classes / Scale
+-- / Classes / CanScale
 -------------------------------------------------------------------------------
 
-class ScaleXYZ a where
+class CanScaleXYZ a where
   scaleXYZ :: V3 Double -> a -> a
 
-class ScaleXY a where
+class CanScaleXY a where
   scaleXY :: V2 Double -> a -> a
 
-class ScaleXZ a where
+class CanScaleXZ a where
   scaleXZ :: V2 Double -> a -> a
 
-class ScaleYZ a where
+class CanScaleYZ a where
   scaleYZ :: V2 Double -> a -> a
 
-class ScaleX a where
+class CanScaleX a where
   scaleX :: Double -> a -> a
 
-class ScaleY a where
+class CanScaleY a where
   scaleY :: Double -> a -> a
 
-class ScaleZ a where
+class CanScaleZ a where
   scaleZ :: Double -> a -> a
 
-class Scale a where
+class CanScale a where
   scale :: Double -> a -> a
 
 -- * 2D
 
-instance (MonadNeon m) => ScaleXY (m Model2D) where
+instance (MonadNeon m) => CanScaleXY (m Model2D) where
   scaleXY (x, y) modelM = do
     model <- modelM
     pure $ Transform2D (Scale2D (x, y)) [model]
 
-instance (MonadNeon m) => ScaleX (m Model2D) where
+instance (MonadNeon m) => CanScaleX (m Model2D) where
   scaleX x modelM = scaleXY (x, 1) modelM
 
-instance (MonadNeon m) => ScaleY (m Model2D) where
+instance (MonadNeon m) => CanScaleY (m Model2D) where
   scaleY y modelM = scaleXY (1, y) modelM
 
-instance MonadNeon m => Scale (m Model2D) where
+instance MonadNeon m => CanScale (m Model2D) where
   scale x modelM = scaleXY (x, x) modelM
 
 -- * 3D
 
-instance (MonadNeon m) => ScaleXYZ (m Model3D) where
+instance (MonadNeon m) => CanScaleXYZ (m Model3D) where
   scaleXYZ v modelM = do
     model <- modelM
     pure $ Transform3D (Scale3D v) [model]
 
-instance (MonadNeon m) => ScaleXY (m Model3D) where
+instance (MonadNeon m) => CanScaleXY (m Model3D) where
   scaleXY (x, y) modelM = scaleXYZ (x, y, 1) modelM
   
-instance (MonadNeon m) => ScaleXZ (m Model3D) where
+instance (MonadNeon m) => CanScaleXZ (m Model3D) where
   scaleXZ (x, z) modelM = scaleXYZ (x, 1, z) modelM
 
-instance (MonadNeon m) => ScaleYZ (m Model3D) where
+instance (MonadNeon m) => CanScaleYZ (m Model3D) where
   scaleYZ (y, z) modelM = scaleXYZ (1, y, z) modelM
 
-instance (MonadNeon m) => ScaleX (m Model3D) where
+instance (MonadNeon m) => CanScaleX (m Model3D) where
   scaleX x modelM = scaleXYZ (x, 1, 1) modelM
 
-instance (MonadNeon m) => ScaleY (m Model3D) where
+instance (MonadNeon m) => CanScaleY (m Model3D) where
   scaleY y modelM = scaleXYZ (1, y, 1) modelM
 
-instance MonadNeon m => Scale (m Model3D) where
+instance MonadNeon m => CanScale (m Model3D) where
   scale x modelM = scaleXYZ (x, x, x) modelM
 
 -------------------------------------------------------------------------------
--- / Classes / Move
+-- / Modifiers / CanMove
 -------------------------------------------------------------------------------
 
-class MoveXYZ a where
+class CanMoveXYZ a where
   moveXYZ :: V3 Double -> a -> a
 
-class MoveXY a where
+class CanMoveXY a where
   moveXY :: V2 Double -> a -> a
 
-class MoveXZ a where
+class CanMoveXZ a where
   moveXZ :: V2 Double -> a -> a
 
-class MoveYZ a where
+class CanMoveYZ a where
   moveYZ :: V2 Double -> a -> a
 
-class MoveX a where
+class CanMoveX a where
   moveX :: Double -> a -> a
 
-class MoveY a where
+class CanMoveY a where
   moveY :: Double -> a -> a
 
-class MoveZ a where
+class CanMoveZ a where
   moveZ :: Double -> a -> a
 
 -- * 2D
 
-instance (MonadNeon m) => MoveXY (m Model2D) where
+instance (MonadNeon m) => CanMoveXY (m Model2D) where
   moveXY (x, y) modelM = do
     model <- modelM
     pure $ Transform2D (Translate2D (x, y, 0)) [model]
 
-instance (MonadNeon m) => MoveX (m Model2D) where
+instance (MonadNeon m) => CanMoveX (m Model2D) where
   moveX x modelM = moveXY (x, 0) modelM
 
-instance (MonadNeon m) => MoveY (m Model2D) where
+instance (MonadNeon m) => CanMoveY (m Model2D) where
   moveY y modelM = moveXY (0, y) modelM
 
-instance (MonadNeon m) => MoveZ (m Model2D) where
+instance (MonadNeon m) => CanMoveZ (m Model2D) where
   moveZ z modelM = do
     model <- modelM
     pure $ Transform2D (Translate2D (0, 0, z)) [model]
@@ -533,127 +606,127 @@ instance (MonadNeon m) => MoveZ (m Model2D) where
 
 -- * 3D
 
-instance (MonadNeon m) => MoveXYZ (m Model3D) where
+instance (MonadNeon m) => CanMoveXYZ (m Model3D) where
   moveXYZ v modelM = do
     model <- modelM
     pure $ Transform3D (Translate3D v) [model]
 
-instance (MonadNeon m) => MoveXY (m Model3D) where
+instance (MonadNeon m) => CanMoveXY (m Model3D) where
   moveXY (x, y) modelM = moveXYZ (x, y, 0) modelM
 
-instance (MonadNeon m) => MoveXZ (m Model3D) where
+instance (MonadNeon m) => CanMoveXZ (m Model3D) where
   moveXZ (x, z) modelM = moveXYZ (x, 0, z) modelM
 
-instance (MonadNeon m) => MoveYZ (m Model3D) where
+instance (MonadNeon m) => CanMoveYZ (m Model3D) where
   moveYZ (y, z) modelM = moveXYZ (0, y, z) modelM
 
-instance (MonadNeon m) => MoveX (m Model3D) where
+instance (MonadNeon m) => CanMoveX (m Model3D) where
   moveX x modelM = moveXYZ (x, 0, 0) modelM
 
-instance (MonadNeon m) => MoveY (m Model3D) where
+instance (MonadNeon m) => CanMoveY (m Model3D) where
   moveY y modelM = moveXYZ (0, y, 0) modelM
 
-instance (MonadNeon m) => MoveZ (m Model3D) where
+instance (MonadNeon m) => CanMoveZ (m Model3D) where
   moveZ z modelM = moveXYZ (0, 0, z) modelM
 
 
 -------------------------------------------------------------------------------
--- / Classes / Resize
+-- / Classes / CanResize
 -------------------------------------------------------------------------------
 
-class ResizeXYZ a where
+class CanResizeXYZ a where
   resizeXYZ :: V3 Double -> a -> a
 
-class ResizeXY a where
+class CanResizeXY a where
   resizeXY :: V2 Double -> a -> a
 
-class ResizeXZ a where
+class CanResizeXZ a where
   resizeXZ :: V2 Double -> a -> a
 
-class ResizeYZ a where
+class CanResizeYZ a where
   resizeYZ :: V2 Double -> a -> a
 
-class ResizeX a where
+class CanResizeX a where
   resizeX :: Double -> a -> a
 
-class ResizeY a where
+class CanResizeY a where
   resizeY :: Double -> a -> a
 
-class ResizeZ a where
+class CanResizeZ a where
   resizeZ :: Double -> a -> a
 
 
 -- * 2D
 
-instance (MonadNeon m) => ResizeXY (m Model2D) where
+instance (MonadNeon m) => CanResizeXY (m Model2D) where
   resizeXY (x, y) modelM = do
     model <- modelM
     pure $ Transform2D (Resize2D (x, y) Nothing) [model]
     
     
-instance (MonadNeon m) => ResizeX (m Model2D) where
+instance (MonadNeon m) => CanResizeX (m Model2D) where
   resizeX x modelM = resizeXY (x, 1) modelM
 
-instance (MonadNeon m) => ResizeY (m Model2D) where
+instance (MonadNeon m) => CanResizeY (m Model2D) where
   resizeY y modelM = resizeXY (1, y) modelM
 
 
 -- * 3D
 
-instance (MonadNeon m) => ResizeXYZ (m Model3D) where
+instance (MonadNeon m) => CanResizeXYZ (m Model3D) where
   resizeXYZ (x, y, z) modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (x, y, z) Nothing) [model]
     
-instance (MonadNeon m) => ResizeXY (m Model3D) where
+instance (MonadNeon m) => CanResizeXY (m Model3D) where
   resizeXY (x, y) modelM = resizeXYZ (x, y, 0) modelM
   
-instance (MonadNeon m) => ResizeXZ (m Model3D) where
+instance (MonadNeon m) => CanResizeXZ (m Model3D) where
   resizeXZ (x, z) modelM = resizeXYZ (x, 1, z) modelM
 
-instance (MonadNeon m) => ResizeYZ (m Model3D) where
+instance (MonadNeon m) => CanResizeYZ (m Model3D) where
   resizeYZ (y, z) modelM = resizeXYZ (1, y, z) modelM
 
-instance (MonadNeon m) => ResizeX (m Model3D) where
+instance (MonadNeon m) => CanResizeX (m Model3D) where
   resizeX x modelM = resizeXYZ (x, 1, 1) modelM
 
-instance (MonadNeon m) => ResizeY (m Model3D) where
+instance (MonadNeon m) => CanResizeY (m Model3D) where
   resizeY y modelM = resizeXYZ (1, y, 1) modelM
 
-instance (MonadNeon m) => ResizeZ (m Model3D) where
+instance (MonadNeon m) => CanResizeZ (m Model3D) where
   resizeZ z modelM = resizeXYZ (1, 1, z) modelM
 
 -------------------------------------------------------------------------------
--- / Classes / Resize Auto
+-- / Classes / CanResize Auto
 -------------------------------------------------------------------------------
 
-class ResizeAutoXY a where
+class CanResizeAutoXY a where
   resizeAutoXY :: V2 Double -> a -> a
 
-class ResizeAutoXZ a where
+class CanResizeAutoXZ a where
   resizeAutoXZ :: V2 Double -> a -> a
 
-class ResizeAutoYZ a where
+class CanResizeAutoYZ a where
   resizeAutoYZ :: V2 Double -> a -> a
 
-class ResizeAutoX a where
+class CanResizeAutoX a where
   resizeAutoX :: Double -> a -> a
 
-class ResizeAutoY a where
+class CanResizeAutoY a where
   resizeAutoY :: Double -> a -> a
 
-class ResizeAutoZ a where
+class CanResizeAutoZ a where
   resizeAutoZ :: Double -> a -> a
 
 
 -- * 2D
 
-instance (MonadNeon m) => ResizeAutoX (m Model2D) where
+instance (MonadNeon m) => CanResizeAutoX (m Model2D) where
   resizeAutoX x modelM = do
     model <- modelM
     pure $ Transform2D (Resize2D (x, 0) (Just (False, True))) [model]
 
-instance (MonadNeon m) => ResizeAutoY (m Model2D) where
+instance (MonadNeon m) => CanResizeAutoY (m Model2D) where
   resizeAutoY y modelM = do
     model <- modelM
     pure $ Transform2D (Resize2D (0, y) (Just (True, False))) [model]
@@ -661,32 +734,32 @@ instance (MonadNeon m) => ResizeAutoY (m Model2D) where
 
 -- * 3D
 
-instance (MonadNeon m) => ResizeAutoXY (m Model3D) where
+instance (MonadNeon m) => CanResizeAutoXY (m Model3D) where
   resizeAutoXY (x, y) modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (x, y, 0) (Just (False, False, True))) [model]
   
-instance (MonadNeon m) => ResizeAutoXZ (m Model3D) where
+instance (MonadNeon m) => CanResizeAutoXZ (m Model3D) where
   resizeAutoXZ (x, z) modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (x, 0, z) (Just (False, True, False))) [model]
   
-instance (MonadNeon m) => ResizeAutoYZ (m Model3D) where
+instance (MonadNeon m) => CanResizeAutoYZ (m Model3D) where
   resizeAutoYZ (y, z) modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (0, y, z) (Just (True, False, False))) [model]
 
-instance (MonadNeon m) => ResizeAutoX (m Model3D) where
+instance (MonadNeon m) => CanResizeAutoX (m Model3D) where
   resizeAutoX x modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (x, 0, 0) (Just (False, True, True))) [model]
 
-instance (MonadNeon m) => ResizeAutoY (m Model3D) where
+instance (MonadNeon m) => CanResizeAutoY (m Model3D) where
   resizeAutoY y modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (0, y, 0) (Just (True, False, True))) [model]
 
-instance (MonadNeon m) => ResizeAutoZ (m Model3D) where
+instance (MonadNeon m) => CanResizeAutoZ (m Model3D) where
   resizeAutoZ z modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (0, 0, z) (Just (True, True, False))) [model]
@@ -1293,6 +1366,24 @@ polygon optsMay = pure $ Primitive2D $ Polygon2D
 -- / 2D / Primitive / Text
 -------------------------------------------------------------------------------
 
+class HasFontName a where
+  fontName :: FontName -> a
+
+class HasFontStyle a where
+  fontStyle :: FontStyle -> a
+
+class HasDirection a where
+  direction :: Direction -> a
+
+class HasHorizontalAlignment a where
+  horizontalAlignment :: HorizontalAlignment -> a
+
+class HasVerticalAlignment a where
+  verticalAlignment :: VerticalAlignment -> a
+
+class HasSpacing a where
+  spacing :: Double -> a
+
 data TextOpts f = TextOpts {
   textOptsText      :: f String,
   textOptsFont      :: f FontName,
@@ -1314,29 +1405,23 @@ deriving via Generically (TextOpts First)
 deriving via Generically (TextOpts First)
   instance Monoid (TextOpts First)
 
-fontName :: FontName -> TextOpts First
-fontName n = mempty { textOptsFont = First $ Just n }
-
-fontStyle :: FontStyle -> TextOpts First
-fontStyle s = mempty { textOptsStyle = First $ Just s }
-
-fontSize :: Double -> TextOpts First
-fontSize s = mempty { textOptsSize = First $ Just s }
-
-direction :: Direction -> TextOpts First
-direction dir = mempty { textOptsDirection = First $ Just dir }
-
-hAlign :: HorizontalAlignment -> TextOpts First
-hAlign ha = mempty { textOptsHAlign = First $ Just ha }
-
-left :: HorizontalAlignment
-left = HALeft
-
-instance IsCenter HorizontalAlignment where
-  center = HACenter
-
-right :: HorizontalAlignment
-right = HARight
+instance HasFontName (TextOpts First) where
+  fontName n = mempty { textOptsFont = First $ Just n }
+  
+instance HasFontStyle (TextOpts First) where
+  fontStyle s = mempty { textOptsStyle = First $ Just s }
+  
+instance HasDirection (TextOpts First) where
+  direction dir = mempty { textOptsDirection = First $ Just dir }
+  
+instance HasHorizontalAlignment (TextOpts First) where
+  horizontalAlignment ha = mempty { textOptsHAlign = First $ Just ha }
+  
+instance HasVerticalAlignment (TextOpts First) where
+  verticalAlignment va = mempty { textOptsVAlign = First $ Just va }
+  
+instance HasSpacing (TextOpts First) where
+  spacing s = mempty { textOptsSpacing = First $ Just s }
 
 vAlign :: VerticalAlignment -> TextOpts First
 vAlign va = mempty { textOptsVAlign = First $ Just va }
@@ -1399,8 +1484,8 @@ mkFont fontNameMay style = case (fontNameMay, style) of
     }
   (Nothing, mayStyle) -> mkFont (Just FNLiberationSans) mayStyle
 
-text :: MonadNeon m => TextOpts First -> m Model2D
-text optsMay = do
+text :: MonadNeon m => String -> TextOpts First -> m Model2D
+text s optsMay = do
   fc <- askFacets
   pure $ Primitive2D $ Text2D
     { textText      = get opts.textOptsText
@@ -1445,6 +1530,7 @@ offset d modelM = do
 -- / 3D / Primitive / Box
 -------------------------------------------------------------------------------
 
+-- | Options for creating a box.
 newtype BoxOpts = BoxOpts { unBoxOpts :: BoxOptsInternal First }
   deriving newtype (Semigroup, Monoid)
 
@@ -1476,6 +1562,7 @@ instance HasSize (V3 Double) BoxOpts where
 instance HasPlacement BoxOpts where
   placement v = BoxOpts $ mempty { boxOptsPlacement = First $ Just v }
 
+-- | Create a box from given options.
 box :: MonadNeon m => BoxOpts -> m Model3D
 box (BoxOpts optsMay) = pure $ Primitive3D $ Cube3D
   { cubeSize = get opts.boxOptsSize
@@ -1978,8 +2065,8 @@ get = runIdentity
 -- / Rendering
 -------------------------------------------------------------------------------
 
-render2D :: Model2D -> String
-render2D = OpenSCAD.render2D
+render2D :: NeonM Model2D -> String
+render2D = OpenSCAD.render2D . run
 
-render3D :: Model3D -> String
-render3D = OpenSCAD.render3D
+render3D :: NeonM Model3D -> String
+render3D = OpenSCAD.render3D . run
