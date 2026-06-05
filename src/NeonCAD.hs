@@ -59,6 +59,37 @@ module NeonCAD (
   -- ![polyhedron](out/doc-imgs/polyhedron.png)
   polyhedron, PolyhedronOpts,
 
+  -- * 2D Primitives
+  -- ** Text
+  -- |
+  -- ![text](out/doc-imgs/text.png)
+  text, TextOpts,
+
+  -- ** Rect
+  -- |
+  -- ![rect](out/doc-imgs/rect.png)
+  rect, RectOpts,
+
+  -- ** Square
+  -- |
+  -- ![square](out/doc-imgs/square.png)
+  square, SquareOpts,
+
+  -- ** Polygon
+  -- |
+  -- ![polygon](out/doc-imgs/polygon.png)
+  polygon, PolygonOpts,
+
+  -- ** Ellipse
+  -- |
+  -- ![ellipse](out/doc-imgs/ellipse.png)
+  ellipse, EllipseOpts,
+
+  -- ** Circle
+  -- |
+  -- ![circle](out/doc-imgs/circle.png)
+  circle, CircleOpts,
+
   -- * Attributes
   -- |
   HasSize(..),
@@ -110,6 +141,27 @@ module NeonCAD (
   CanResizeAutoX(..),
   CanResizeAutoY(..),
   CanResizeAutoZ(..),
+
+  -- ** Spin
+  CanSpinXYZ(..),
+  CanSpinXY(..),
+  CanSpinXZ(..),
+  CanSpinYZ(..),
+  CanSpinX(..),
+  CanSpinY(..),
+  CanSpinZ(..),
+
+  -- ** Mirror
+  CanMirrorXYZ(..),
+  CanMirrorXY(..),
+  CanMirrorXZ(..),
+  CanMirrorYZ(..),
+  CanMirrorX(..),
+  CanMirrorY(..),
+  CanMirrorZ(..),
+
+  -- ** Comment
+  CanComment(..),
   
 
   -- * Models
@@ -478,15 +530,15 @@ class HasConvexity a where
 -- / Classes / Comment
 -------------------------------------------------------------------------------
 
-class Comment a where
+class CanComment a where
   comment :: String -> a -> a
 
-instance MonadNeon m => Comment (m Model2D) where
+instance MonadNeon m => CanComment (m Model2D) where
   comment txt modelM = do
     model <- modelM
     pure $ Comment2D txt model
 
-instance MonadNeon m => Comment (m Model3D) where
+instance MonadNeon m => CanComment (m Model3D) where
   comment txt modelM = do
     model <- modelM
     pure $ Comment3D txt model
@@ -766,34 +818,34 @@ instance (MonadNeon m) => CanResizeAutoZ (m Model3D) where
 
 
 -------------------------------------------------------------------------------
--- / Classes / Spin
+-- / Classes / CanSpin
 -------------------------------------------------------------------------------
 
-class SpinXYZ a where
+class CanSpinXYZ a where
   spinXYZ :: V3 Double -> a -> a
 
-class SpinXY a where
+class CanSpinXY a where
   spinXY :: V2 Double -> a -> a
 
-class SpinXZ a where
+class CanSpinXZ a where
   spinXZ :: V2 Double -> a -> a
 
-class SpinYZ a where
+class CanSpinYZ a where
   spinYZ :: V2 Double -> a -> a
 
-class SpinX a where
+class CanSpinX a where
   spinX :: Double -> a -> a
 
-class SpinY a where
+class CanSpinY a where
   spinY :: Double -> a -> a
 
-class SpinZ a where
+class CanSpinZ a where
   spinZ :: Double -> a -> a
 
 
 -- * 2D
 
-instance (MonadNeon m) => SpinZ (m Model2D) where
+instance (MonadNeon m) => CanSpinZ (m Model2D) where
   spinZ z modelM = do
     model <- modelM
     pure $ Transform2D (RotateEuler2D (0, 0, z)) [model]
@@ -801,96 +853,96 @@ instance (MonadNeon m) => SpinZ (m Model2D) where
 
 -- * 3D
 
-instance (MonadNeon m) => SpinXYZ (m Model3D) where
+instance (MonadNeon m) => CanSpinXYZ (m Model3D) where
   spinXYZ (x, y, z) modelM = do
     model <- modelM
     pure $ Transform3D (RotateEuler3D (x, y, z)) [model]
 
-instance (MonadNeon m) => SpinXY (m Model3D) where
+instance (MonadNeon m) => CanSpinXY (m Model3D) where
   spinXY (x, y) modelM = spinXYZ (x, y, 0) modelM
 
-instance (MonadNeon m) => SpinXZ (m Model3D) where
+instance (MonadNeon m) => CanSpinXZ (m Model3D) where
   spinXZ (x, z) modelM = spinXYZ (x, 0, z) modelM
 
-instance (MonadNeon m) => SpinYZ (m Model3D) where
+instance (MonadNeon m) => CanSpinYZ (m Model3D) where
   spinYZ (y, z) modelM = spinXYZ (0, y, z) modelM
 
-instance (MonadNeon m) => SpinX (m Model3D) where
+instance (MonadNeon m) => CanSpinX (m Model3D) where
   spinX x modelM = spinXYZ (x, 0, 0) modelM
 
-instance (MonadNeon m) => SpinY (m Model3D) where
+instance (MonadNeon m) => CanSpinY (m Model3D) where
   spinY y modelM = spinXYZ (0, y, 0) modelM
 
-instance (MonadNeon m) => SpinZ (m Model3D) where
+instance (MonadNeon m) => CanSpinZ (m Model3D) where
   spinZ z modelM = spinXYZ (0, 0, z) modelM
 
 -------------------------------------------------------------------------------
--- / Classes / Mirror
+-- / Classes / CanMirror
 -------------------------------------------------------------------------------
 
-class MirrorXYZ a where
+class CanMirrorXYZ a where
   mirrorXYZ :: V3 Double -> a -> a
 
-class MirrorXY a where
+class CanMirrorXY a where
   mirrorXY :: V2 Double -> a -> a
 
-class MirrorXZ a where
+class CanMirrorXZ a where
   mirrorXZ :: V2 Double -> a -> a
 
-class MirrorYZ a where
+class CanMirrorYZ a where
   mirrorYZ :: V2 Double -> a -> a
 
-class MirrorX a where
+class CanMirrorX a where
   mirrorX :: a -> a
 
-class MirrorY a where
+class CanMirrorY a where
   mirrorY :: a -> a
 
-class MirrorZ a where
+class CanMirrorZ a where
   mirrorZ :: Double -> a -> a
 
 
 -- * 2D
 
-instance (MonadNeon m) => MirrorX (m Model2D) where
+instance (MonadNeon m) => CanMirrorX (m Model2D) where
   mirrorX modelM = do
     model <- modelM
     pure $ Transform2D (Mirror2D (0, 1)) [model]
 
 
-instance (MonadNeon m) => MirrorY (m Model2D) where
+instance (MonadNeon m) => CanMirrorY (m Model2D) where
   mirrorY modelM = do
     model <- modelM
     pure $ Transform2D (Mirror2D (1, 0)) [model]
 
-instance (MonadNeon m) => MirrorXY (m Model2D) where
+instance (MonadNeon m) => CanMirrorXY (m Model2D) where
   mirrorXY (x, y) modelM = do
     model <- modelM
     pure $ Transform2D (Mirror2D (x, y)) [model]
 
 -- * 3D
 
-instance (MonadNeon m) => MirrorXYZ (m Model3D) where
+instance (MonadNeon m) => CanMirrorXYZ (m Model3D) where
   mirrorXYZ (x, y, z) modelM = do
     model <- modelM
     pure $ Transform3D (Mirror3D (x, y, z)) [model]
 
-instance (MonadNeon m) => MirrorXY (m Model3D) where
+instance (MonadNeon m) => CanMirrorXY (m Model3D) where
   mirrorXY (x, y) modelM = mirrorXYZ (x, y, 0) modelM
 
-instance (MonadNeon m) => MirrorXZ (m Model3D) where
+instance (MonadNeon m) => CanMirrorXZ (m Model3D) where
   mirrorXZ (x, z) modelM = mirrorXYZ (x, 0, z) modelM
 
-instance (MonadNeon m) => MirrorYZ (m Model3D) where
+instance (MonadNeon m) => CanMirrorYZ (m Model3D) where
   mirrorYZ (y, z) modelM = mirrorXYZ (0, y, z) modelM
 
-instance (MonadNeon m) => MirrorX (m Model3D) where
+instance (MonadNeon m) => CanMirrorX (m Model3D) where
   mirrorX modelM = mirrorXYZ (1, 0, 0) modelM
 
-instance (MonadNeon m) => MirrorY (m Model3D) where
+instance (MonadNeon m) => CanMirrorY (m Model3D) where
   mirrorY modelM = mirrorXYZ (0, 1, 0) modelM
 
-instance (MonadNeon m) => MirrorZ (m Model3D) where
+instance (MonadNeon m) => CanMirrorZ (m Model3D) where
   mirrorZ z modelM = mirrorXYZ (0, 0, z) modelM
 
 -------------------------------------------------------------------------------
@@ -1376,10 +1428,10 @@ class HasDirection a where
   direction :: Direction -> a
 
 class HasHorizontalAlignment a where
-  horizontalAlignment :: HorizontalAlignment -> a
+  hAlign :: HorizontalAlignment -> a
 
 class HasVerticalAlignment a where
-  verticalAlignment :: VerticalAlignment -> a
+  vAlign :: VerticalAlignment -> a
 
 class HasSpacing a where
   spacing :: Double -> a
@@ -1415,16 +1467,13 @@ instance HasDirection (TextOpts First) where
   direction dir = mempty { textOptsDirection = First $ Just dir }
   
 instance HasHorizontalAlignment (TextOpts First) where
-  horizontalAlignment ha = mempty { textOptsHAlign = First $ Just ha }
-  
+  hAlign ha = mempty { textOptsHAlign = First $ Just ha }
+
 instance HasVerticalAlignment (TextOpts First) where
-  verticalAlignment va = mempty { textOptsVAlign = First $ Just va }
+  vAlign va = mempty { textOptsVAlign = First $ Just va }
   
 instance HasSpacing (TextOpts First) where
   spacing s = mempty { textOptsSpacing = First $ Just s }
-
-vAlign :: VerticalAlignment -> TextOpts First
-vAlign va = mempty { textOptsVAlign = First $ Just va }
 
 fontSpacing :: Double -> TextOpts First
 fontSpacing s = mempty { textOptsSpacing = First $ Just s }
@@ -1705,7 +1754,10 @@ frustum optsMay = do
 -- / 3D / Primitive / Cylinder
 -------------------------------------------------------------------------------
 
-data CylinderOpts f = CylinderOpts {
+newtype CylinderOpts = CylinderOpts { unCylinderOpts :: CylinderOptsInternal First }
+  deriving newtype (Semigroup, Monoid)
+
+data CylinderOptsInternal f = CylinderOptsInternal {
   cylinderOptsHeight    :: f Double,
   cylinderOptsDiameter  :: f Double,
   cylinderOptsPlacement :: f Placement,
@@ -1716,37 +1768,37 @@ data CylinderOpts f = CylinderOpts {
     , FunctorB, TraversableB, ApplicativeB, ConstraintsB
     )
 
-deriving via Generically (CylinderOpts First)
-  instance Semigroup (CylinderOpts First)
+deriving via Generically (CylinderOptsInternal First)
+  instance Semigroup (CylinderOptsInternal First)
 
-deriving via Generically (CylinderOpts First)
-  instance Monoid (CylinderOpts First)
+deriving via Generically (CylinderOptsInternal First)
+  instance Monoid (CylinderOptsInternal First)
 
-instance HasHeight (CylinderOpts First) where
-  height v = mempty { cylinderOptsHeight = First $ Just v }
+instance HasHeight CylinderOpts where
+  height v = CylinderOpts $ mempty { cylinderOptsHeight = First $ Just v }
 
-instance HasDiameter (CylinderOpts First) where
-  diameter v = mempty { cylinderOptsDiameter = First $ Just v }
+instance HasDiameter CylinderOpts where
+  diameter v = CylinderOpts $ mempty { cylinderOptsDiameter = First $ Just v }
 
-instance HasPlacement (CylinderOpts First) where
-  placement v = mempty { cylinderOptsPlacement = First $ Just v }
+instance HasPlacement CylinderOpts where
+  placement v = CylinderOpts $ mempty { cylinderOptsPlacement = First $ Just v }
 
-instance HasFacets (CylinderOpts First) where
-  facets v = mempty { cylinderOptsFacets = First $ Just v }
+instance HasFacets CylinderOpts where
+  facets v = CylinderOpts $ mempty { cylinderOptsFacets = First $ Just v }
 
-fallbackCylinderOpts :: Facets -> CylinderOpts Identity
-fallbackCylinderOpts fc = CylinderOpts {
+fallbackCylinderOpts :: Facets -> CylinderOptsInternal Identity
+fallbackCylinderOpts fc = CylinderOptsInternal {
   cylinderOptsHeight    = pure defaultCylinderHeight,
   cylinderOptsDiameter  = pure defaultCylinderDiameter,
   cylinderOptsPlacement = pure PlacementCenter,
   cylinderOptsFacets    = pure fc
 }
 
-cylinder :: MonadNeon m => CylinderOpts First -> m Model3D
-cylinder optsMay = do
+cylinder :: MonadNeon m => CylinderOpts -> m Model3D
+cylinder (CylinderOpts optsMay) = do
   fc <- askFacets
   let
-    opts :: CylinderOpts Identity
+    opts :: CylinderOptsInternal Identity
     opts = bzipWith orDef (fallbackCylinderOpts fc) optsMay
   
     dia = get opts.cylinderOptsDiameter
