@@ -21,11 +21,21 @@
 
 module NeonCAD (
   -- * Basic
-  run,
-  render2D, render3D,
-  MonadNeon(askFacets, localFacets),
+  -- ** Vectors
+  -- | Throughout the library, we use 2D and 3D vectors to represent positions and sizes.
   V2, V3,
+  
+  -- ** Monad
+  -- | All model creation and modification is done in a Monad which implements the `MonadNeon` class.
+  MonadNeon(askFacets, localFacets),
 
+  -- | For most cases it is enough to use the `NeonM` monad.
+  NeonM, 
+
+  -- ** Rendering
+  -- | Thus rendering functions are specialized for the `NeonM` monad.
+  render2D, render3D,
+   
   -- * 3D Primitives
   -- ** Box
   -- |
@@ -97,12 +107,11 @@ module NeonCAD (
   -- ** Size
   HasSize(size),
   -- ** Placement
-  HasPlacement(placeAt),
+  HasPlacement(place),
   -- ** Facets
   HasFacets(facets),
   -- ** Diameter
-  HasDiameter(diameter),
-  radius,
+  HasDiameter(diameter), radius,
   HasDiameterTop(diameterTop),
   HasDiameterBottom(diameterBottom),
   -- ** Faces
@@ -132,7 +141,7 @@ module NeonCAD (
   CanMoveYZ(moveYZ),
   CanMoveX(moveX),
   CanMoveY(moveY),
-  CanMoveZ(..),
+  CanMoveZ(moveZ),
 
   -- ** Scale
   CanScaleXYZ(scaleXYZ),
@@ -178,8 +187,7 @@ module NeonCAD (
   CanMirrorZ(mirrorZ),
 
   -- ** Color
-  CanColoring(color),
-  rgb, alpha,
+  CanColoring(color), rgb, alpha,
 
   -- ** Hull
   CanHull(hull),
@@ -207,18 +215,19 @@ module NeonCAD (
   -- ** Extrude
   extrudeLinear, extrudeRotational,
 
-  -- -- *** Project
-  -- CanProject(project),
-
   -- * Models
   Model2D, Model3D,
+
+  -- Advanced
+  -- ** Custom Monads
+  NeonT,
+  runNeonT,
+  renderModel2D, renderModel3D,
 ) where
 
 -------------------------------------------------------------------------------
 -- / Imports
 -------------------------------------------------------------------------------
-
-import qualified OpenSCAD
 
 import OpenSCAD
   ( Model2D(..), Primitive2D(..), Transform2D(..)
@@ -231,6 +240,8 @@ import OpenSCAD
   , Facets(..)
   , Font(..)
   )
+
+import qualified OpenSCAD as O (render2D, render3D)
 
 import Prelude hiding (undefined)
 import Data.Functor.Identity (Identity (runIdentity))
@@ -372,8 +383,11 @@ runNeonT factes (NeonT f) = f factes
 runNeonM :: Facets -> NeonM a -> a
 runNeonM fcs neon = get $ runNeonT fcs neon
 
-run :: NeonM a -> a
-run neon = runNeonM defaultFacets neon
+renderModel2D :: Model2D -> String
+renderModel2D model = O.render2D model
+
+renderModel3D :: Model3D -> String
+renderModel3D model = O.render3D model
 
 instance (Monad m) => Applicative (NeonT m) where
   pure x = NeonT $ \_ -> pure x
@@ -439,7 +453,7 @@ class (Monad m) => MonadNeon m where
 data Placement = PlacementCenter | PlacementOrigin
 
 class HasPlacement a where
-  placeAt :: Placement -> a
+  place :: Placement -> a
 
 
 -------------------------------------------------------------------------------
@@ -1206,7 +1220,7 @@ instance HasFacets CircleOpts where
   facets v = CircleOpts $ mempty { circleOptsFacets = First $ Just v }
 
 instance HasPlacement CircleOpts where
-  placeAt v = CircleOpts $ mempty { circleOptsPlacement = First $ Just v }
+  place v = CircleOpts $ mempty { circleOptsPlacement = First $ Just v }
 
 circle :: (MonadNeon m) => CircleOpts -> m Model2D
 circle (CircleOpts optsMay) = do
@@ -1231,33 +1245,37 @@ circle (CircleOpts optsMay) = do
 -- / 2D / Primitive / Ellipse
 -------------------------------------------------------------------------------
 
-data EllipseOpts f = EllipseOpts {
+newtype EllipseOpts = EllipseOpts { unEllipseOpts :: EllipseOptsInternal First }
+  deriving newtype (Semigroup, Monoid)
+
+data EllipseOptsInternal f = EllipseOptsInternal {
   ellipseOptsSize      :: f (V2 Double),
   ellipseOptsPlacement :: f Placement,
   ellipseOptsFacets    :: f Facets
-}  deriving
+}
+  deriving
     ( Generic
     , FunctorB, TraversableB, ApplicativeB, ConstraintsB
     )
 
-deriving via Generically (EllipseOpts First)
-  instance Semigroup (EllipseOpts First)
+deriving via Generically (EllipseOptsInternal First)
+  instance Semigroup (EllipseOptsInternal First)
 
-deriving via Generically (EllipseOpts First)
-  instance Monoid (EllipseOpts First)
+deriving via Generically (EllipseOptsInternal First)
+  instance Monoid (EllipseOptsInternal First)
 
-fallbackEllipseOpts :: Facets -> EllipseOpts Identity
-fallbackEllipseOpts fc = EllipseOpts {
+fallbackEllipseOpts :: Facets -> EllipseOptsInternal Identity
+fallbackEllipseOpts fc = EllipseOptsInternal {
   ellipseOptsSize      = pure defaultEllipseSize,
   ellipseOptsPlacement = pure PlacementCenter,
   ellipseOptsFacets    = pure fc
 }
 
-ellipse :: MonadNeon m => EllipseOpts First -> m Model2D
-ellipse optsMay = do
+ellipse :: MonadNeon m => EllipseOpts -> m Model2D
+ellipse (EllipseOpts optsMay) = do
   fc <- askFacets
   let
-    opts :: EllipseOpts Identity
+    opts :: EllipseOptsInternal Identity
     opts = bzipWith orDef (fallbackEllipseOpts fc) optsMay
 
     (dx, dy) = get opts.ellipseOptsSize
@@ -1274,7 +1292,10 @@ ellipse optsMay = do
 -- / 2D / Primitive / Rect
 -------------------------------------------------------------------------------
 
-data RectOpts f = RectOpts {
+newtype RectOpts = RectOpts { unRectOpts :: RectOptsInternal First }
+  deriving newtype (Semigroup, Monoid)
+
+data RectOptsInternal f = RectOptsInternal {
   rectOptsSize      :: f (V2 Double),
   rectOptsPlacement :: f Placement
 }
@@ -1283,43 +1304,45 @@ data RectOpts f = RectOpts {
     , FunctorB, TraversableB, ApplicativeB, ConstraintsB
     )
 
-deriving via Generically (RectOpts First)
-  instance Semigroup (RectOpts First)
+deriving via Generically (RectOptsInternal First)
+  instance Semigroup (RectOptsInternal First)
 
-deriving via Generically (RectOpts First)
-  instance Monoid (RectOpts First)
+deriving via Generically (RectOptsInternal First)
+  instance Monoid (RectOptsInternal First)
 
-fallbackRectOpts :: RectOpts Identity
-fallbackRectOpts = RectOpts {
+fallbackRectOpts :: RectOptsInternal Identity
+fallbackRectOpts = RectOptsInternal {
   rectOptsSize = pure defaultRectSize,
   rectOptsPlacement = pure PlacementCenter
 }
+instance HasPlacement RectOpts where
+  place v = RectOpts $ mempty { rectOptsPlacement = First $ Just v }
 
-instance HasPlacement (RectOpts First) where
-  placeAt v = mempty { rectOptsPlacement = First $ Just v }
+instance HasSize (V2 Double) RectOpts where
+  size v = RectOpts $ mempty { rectOptsSize = First $ Just v }
 
-instance HasSize (V2 Double) (RectOpts First) where
-  size v = mempty { rectOptsSize = First $ Just v }
+instance IsCenter RectOpts where
+  center = RectOpts $ mempty { rectOptsPlacement = First $ Just PlacementCenter }
 
-instance IsCenter (RectOpts First) where
-  center = mempty { rectOptsPlacement = First $ Just PlacementCenter }
-
-rect :: MonadNeon m => RectOpts First -> m Model2D
-rect opts = pure $ Primitive2D $ Square2D
-  { squareSize = get opt.rectOptsSize
-  , squareCenter = case get opt.rectOptsPlacement of
-      PlacementCenter -> Just True
-      PlacementOrigin -> Nothing
-  }
+rect :: MonadNeon m => RectOpts -> m Model2D
+rect (RectOpts optsMay) = pure $ Primitive2D $ Square2D
+    { squareSize = get opts.rectOptsSize
+    , squareCenter = case get opts.rectOptsPlacement of
+        PlacementCenter -> Just True
+        PlacementOrigin -> Nothing
+    }
   where
-    opt :: RectOpts Identity
-    opt = bzipWith orDef fallbackRectOpts opts
+    opts :: RectOptsInternal Identity
+    opts = bzipWith orDef fallbackRectOpts optsMay
 
 -------------------------------------------------------------------------------
 -- / 2D / Primitive / Square
 -------------------------------------------------------------------------------
 
-data SquareOpts f = SquareOpts {
+newtype SquareOpts = SquareOpts { unSquareOpts :: SquareOptsInternal First }
+  deriving newtype (Semigroup, Monoid)
+
+data SquareOptsInternal f = SquareOptsInternal {
   squareOptsSize      :: f Double,
   squareOptsPlacement :: f Placement
 }
@@ -1328,36 +1351,36 @@ data SquareOpts f = SquareOpts {
     , FunctorB, TraversableB, ApplicativeB, ConstraintsB
     )
 
-deriving via Generically (SquareOpts First)
-  instance Semigroup (SquareOpts First)
+deriving via Generically (SquareOptsInternal First)
+  instance Semigroup (SquareOptsInternal First)
 
-deriving via Generically (SquareOpts First)
-  instance Monoid (SquareOpts First)
+deriving via Generically (SquareOptsInternal First)
+  instance Monoid (SquareOptsInternal First)
 
-instance IsCenter (SquareOpts First) where
-  center = mempty { squareOptsPlacement = First $ Just PlacementCenter }
+instance IsCenter SquareOpts where
+  center = SquareOpts $ mempty { squareOptsPlacement = First $ Just PlacementCenter }
 
-fallbackSquareOpts :: SquareOpts Identity
-fallbackSquareOpts = SquareOpts {
+fallbackSquareOpts :: SquareOptsInternal Identity
+fallbackSquareOpts = SquareOptsInternal {
   squareOptsSize      = pure defaultSquareSize,
   squareOptsPlacement = pure PlacementCenter
 }
 
-instance HasSize Double (SquareOpts First) where
-  size v = mempty { squareOptsSize = First $ Just v }
+instance HasSize Double SquareOpts where
+  size v = SquareOpts $ mempty { squareOptsSize = First $ Just v }
 
-instance HasPlacement (SquareOpts First) where
-  placeAt v = mempty { squareOptsPlacement = First $ Just v }
+instance HasPlacement SquareOpts where
+  place v = SquareOpts $ mempty { squareOptsPlacement = First $ Just v }
 
-square :: MonadNeon m => SquareOpts First -> m Model2D
-square optsMay = pure $ Primitive2D $ Square2D
+square :: MonadNeon m => SquareOpts -> m Model2D
+square (SquareOpts optsMay) = pure $ Primitive2D $ Square2D
   { squareSize   = (s, s)
   , squareCenter = case get opts.squareOptsPlacement of
       PlacementCenter -> Just True
       PlacementOrigin -> Nothing
   }
   where
-    opts :: SquareOpts Identity
+    opts :: SquareOptsInternal Identity
     opts = bzipWith orDef fallbackSquareOpts optsMay
     s = get opts.squareOptsSize
 
@@ -1368,7 +1391,10 @@ square optsMay = pure $ Primitive2D $ Square2D
 -- Paths are not supported yet, because they can be modeled with difference.
 -- Maybe in the future paths can be added for ergonomics if needed.
 
-data PolygonOpts f = PolygonOpts {
+newtype PolygonOpts = PolygonOpts { unPolygonOpts :: PolygonOptsInternal First }
+  deriving newtype (Semigroup, Monoid)
+
+data PolygonOptsInternal f = PolygonOptsInternal {
   polygonOptsPoints    :: f [V2 Double],
   polygonOptsConvexity :: f Int,
   polygonOptsPlacement :: f Placement
@@ -1378,33 +1404,33 @@ data PolygonOpts f = PolygonOpts {
     , FunctorB, TraversableB, ApplicativeB, ConstraintsB
     )
 
-deriving via Generically (PolygonOpts First)
-  instance Semigroup (PolygonOpts First)
+deriving via Generically (PolygonOptsInternal First)
+  instance Semigroup (PolygonOptsInternal First)
 
-deriving via Generically (PolygonOpts First)
-  instance Monoid (PolygonOpts First)
+deriving via Generically (PolygonOptsInternal First)
+  instance Monoid (PolygonOptsInternal First)
 
-instance HasPoints [V2 Double] (PolygonOpts First) where
-  points v = mempty { polygonOptsPoints = First $ Just v }
+instance HasPoints [V2 Double] PolygonOpts where
+  points v = PolygonOpts $ mempty { polygonOptsPoints = First $ Just v }
 
-instance HasPlacement (PolygonOpts First) where
-  placeAt v = mempty { polygonOptsPlacement = First $ Just v }
+instance HasPlacement PolygonOpts where
+  place v = PolygonOpts $ mempty { polygonOptsPlacement = First $ Just v }
 
-fallbackPolygonOpts :: PolygonOpts Identity
-fallbackPolygonOpts = PolygonOpts {
+fallbackPolygonOpts :: PolygonOptsInternal Identity
+fallbackPolygonOpts = PolygonOptsInternal {
   polygonOptsPoints    = pure defaultPolygonPoints,
   polygonOptsConvexity = pure defaultConvexity,
   polygonOptsPlacement = pure PlacementCenter
 }
 
-polygon :: MonadNeon m => PolygonOpts First -> m Model2D
-polygon optsMay = pure $ Primitive2D $ Polygon2D
+polygon :: MonadNeon m => PolygonOpts -> m Model2D
+polygon (PolygonOpts optsMay) = pure $ Primitive2D $ Polygon2D
   { polygonPoints    = get opts.polygonOptsPoints
   , polygonConvexity = Just $ get opts.polygonOptsConvexity
   , polygonPaths     = Nothing
   }
   where
-    opts :: PolygonOpts Identity
+    opts :: PolygonOptsInternal Identity
     opts = bzipWith orDef fallbackPolygonOpts optsMay
 
 -------------------------------------------------------------------------------
@@ -1602,7 +1628,7 @@ instance HasSize (V3 Double) BoxOpts where
   size v = BoxOpts $ mempty { boxOptsSize = First $ Just v }
 
 instance HasPlacement BoxOpts where
-  placeAt v = BoxOpts $ mempty { boxOptsPlacement = First $ Just v }
+  place v = BoxOpts $ mempty { boxOptsPlacement = First $ Just v }
 
 -- | Create a box from given options.
 box :: MonadNeon m => BoxOpts -> m Model3D
@@ -1649,7 +1675,7 @@ instance HasSize Double CubeOpts where
   size v = CubeOpts $ mempty { cubeOptsSize = First $ Just v }
 
 instance HasPlacement CubeOpts where
-  placeAt v = CubeOpts $ mempty { cubeOptsPlacement = First $ Just v }
+  place v = CubeOpts $ mempty { cubeOptsPlacement = First $ Just v }
 
 cube :: MonadNeon m => CubeOpts -> m Model3D
 cube (CubeOpts optsMay) = pure $ Primitive3D $ Cube3D
@@ -1700,7 +1726,7 @@ instance HasDiameterBottom FrustumOpts where
   diameterBottom d = FrustumOpts $ mempty { frustumOptsDiameterBottom = First $ Just d }
 
 instance HasPlacement FrustumOpts where
-  placeAt v = FrustumOpts $ mempty { frustumOptsPlacement = First $ Just v }
+  place v = FrustumOpts $ mempty { frustumOptsPlacement = First $ Just v }
 
 instance HasFacets FrustumOpts where
   facets v = FrustumOpts $ mempty { frustumOptsFacets = First $ Just v }
@@ -1777,7 +1803,7 @@ instance HasDiameter CylinderOpts where
   diameter v = CylinderOpts $ mempty { cylinderOptsDiameter = First $ Just v }
 
 instance HasPlacement CylinderOpts where
-  placeAt v = CylinderOpts $ mempty { cylinderOptsPlacement = First $ Just v }
+  place v = CylinderOpts $ mempty { cylinderOptsPlacement = First $ Just v }
 
 instance HasFacets CylinderOpts where
   facets v = CylinderOpts $ mempty { cylinderOptsFacets = First $ Just v }
@@ -1843,7 +1869,7 @@ instance HasDiameter SphereOpts where
   diameter v = SphereOpts $ mempty { sphereOptsDiameter = First $ Just v }
 
 instance HasPlacement SphereOpts where
-  placeAt v = SphereOpts $ mempty { sphereOptsPlacement = First $ Just v }
+  place v = SphereOpts $ mempty { sphereOptsPlacement = First $ Just v }
 
 instance HasFacets SphereOpts where
   facets v = SphereOpts $ mempty { sphereOptsFacets = First $ Just v }
@@ -1901,7 +1927,7 @@ instance HasSize (V3 Double) EllipsoidOpts where
   size v = EllipsoidOpts $ mempty { ellipsoidOptsSize = First $ Just v }
 
 instance HasPlacement EllipsoidOpts where
-  placeAt v = EllipsoidOpts $ mempty { ellipsoidOptsPlacement = First $ Just v }
+  place v = EllipsoidOpts $ mempty { ellipsoidOptsPlacement = First $ Just v }
 
 instance HasFacets EllipsoidOpts where
   facets v = EllipsoidOpts $ mempty { ellipsoidOptsFacets = First $ Just v }
@@ -2114,7 +2140,7 @@ get = runIdentity
 -------------------------------------------------------------------------------
 
 render2D :: NeonM Model2D -> String
-render2D = OpenSCAD.render2D . run
+render2D = O.render2D . runNeonM defaultFacets
 
 render3D :: NeonM Model3D -> String
-render3D = OpenSCAD.render3D . run
+render3D = O.render3D . runNeonM defaultFacets

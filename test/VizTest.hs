@@ -130,8 +130,8 @@ info2D =
                 , unions $
                     colorize $
                         level
-                            [ circle $ diameter 50 <> placeAt origin
-                            , circle $ diameter 50 <> placeAt center
+                            [ circle $ diameter 50 <> place origin
+                            , circle $ diameter 50 <> place center
                             ]
                 )
             ]
@@ -161,8 +161,8 @@ info2D =
                 , unions $
                     colorize $
                         level
-                            [ rect $ size (50, 30) <> placeAt origin
-                            , rect $ size (50, 30) <> placeAt center
+                            [ rect $ size (50, 30) <> place origin
+                            , rect $ size (50, 30) <> place center
                             ]
                 )
             ]
@@ -176,13 +176,13 @@ info2D =
                 )
             ,
                 ( "Sizes"
-                , unions $ map (\s -> to3D $ square $ size s) [20, 40, 60, 80, 100]
+                , unions $ map (to3D . square . size) [20, 40, 60, 80, 100]
                 )
             ,
                 ( "placements"
-                , unions $
-                    [ to3D $ square $ size 50 <> placeAt origin
-                    , to3D $ square $ size 50 <> placeAt center
+                , unions
+                    [ to3D $ square $ size 50 <> place origin
+                    , to3D $ square $ size 50 <> place center
                     ]
                 )
             ]
