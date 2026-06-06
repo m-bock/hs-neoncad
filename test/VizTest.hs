@@ -20,8 +20,7 @@ drawExamples ys =
                             [ moveX (-200) $
                                 scale 2 $
                                     extrudeLinear (height 2) $
-                                        text $
-                                            str nameY
+                                        text nameY mempty
                             , unions (zipWith (\ix it -> moveX (ix * 210) $ drawExample it) [0 ..] xs)
                             ]
             )
@@ -46,8 +45,7 @@ drawExample (name, modelM) =
                                 moveXY (-100 + 10, -100 + 10) $
                                     color (rgb red) $
                                         extrudeLinear (height 1) $
-                                            text $
-                                                str name
+                                            text name mempty
                             , comment "Axis" $
                                 color (rgb red) $
                                     unions
@@ -94,7 +92,7 @@ colors =
     , gray
     ]
 
-colorize :: (MonadNeon m, Color (m model)) => [m model] -> [m model]
+colorize :: (MonadNeon m, CanColoring (m model)) => [m model] -> [m model]
 colorize models =
     zipWith
         ( \c model ->
@@ -132,8 +130,8 @@ info2D =
                 , unions $
                     colorize $
                         level
-                            [ circle $ diameter 50 <> origin
-                            , circle $ diameter 50 <> center
+                            [ circle $ diameter 50 <> placeAt origin
+                            , circle $ diameter 50 <> placeAt center
                             ]
                 )
             ]
@@ -163,8 +161,8 @@ info2D =
                 , unions $
                     colorize $
                         level
-                            [ rect $ size (50, 30) <> origin
-                            , rect $ size (50, 30) <> center
+                            [ rect $ size (50, 30) <> placeAt origin
+                            , rect $ size (50, 30) <> placeAt center
                             ]
                 )
             ]
@@ -183,8 +181,8 @@ info2D =
             ,
                 ( "placements"
                 , unions $
-                    [ to3D $ square $ size 50 <> origin
-                    , to3D $ square $ size 50 <> center
+                    [ to3D $ square $ size 50 <> placeAt origin
+                    , to3D $ square $ size 50 <> placeAt center
                     ]
                 )
             ]
@@ -203,7 +201,7 @@ info2D =
         ,
             [
                 ( "Default"
-                , to3D $ text mempty
+                , to3D $ text "Hello, World!" mempty
                 )
             ]
         )
@@ -287,6 +285,4 @@ main :: IO ()
 main = do
     writeFile
         "out/visual-test.scad"
-        ( render3D $
-            runNeonM defaultFacets world
-        )
+        (render3D world)
