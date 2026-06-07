@@ -1,4 +1,4 @@
-out/
+/out/
 
 # Cabal / GHC
 dist/
@@ -34,3 +34,4 @@ Thumbs.db
 
 # Local scratch
 /tmp
+/node_modules
