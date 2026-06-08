@@ -1,9 +1,10 @@
-DOC_IMGS_DIR := "out/doc-imgs"
+DOC_IMGS_DIR := "doc-imgs"
+DOCS_DIR := "docs"
 
 gen-doc-imgs:
-    # rm -rf {{DOC_IMGS_DIR}}
+    rm -rf {{DOC_IMGS_DIR}}
     mkdir -p {{DOC_IMGS_DIR}}
-    cabal test
+    DOC_IMGS_DIR={{DOC_IMGS_DIR}} cabal test
     for img in {{DOC_IMGS_DIR}}/*.scad; do \
         echo "Generating image for $img"; \
         openscad --imgsize=4000,4000 -o tmp.png "$img"; \
@@ -12,4 +13,7 @@ gen-doc-imgs:
     done
 
 gen-docs:
-    cabal haddock
+    cabal haddock --haddock-output-dir={{DOCS_DIR}}
+
+push-docs:
+    npx gh-pages -d {{DOCS_DIR}}

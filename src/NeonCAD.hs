@@ -39,69 +39,69 @@ module NeonCAD (
   -- * 3D Primitives
   -- ** Box
   -- |
-  -- ![box](out/doc-imgs/box.png)
+  -- ![box](doc-imgs/box.png)
   box, BoxOpts,
 
   -- ** Cube
   -- |
-  -- ![cube](out/doc-imgs/cube.png)
+  -- ![cube](doc-imgs/cube.png)
   cube, CubeOpts,
 
   -- ** Sphere
   -- |
-  -- ![sphere](out/doc-imgs/sphere.png)
+  -- ![sphere](doc-imgs/sphere.png)
   sphere, SphereOpts,
 
   -- ** Ellipsoid
   -- |
-  -- ![ellipsoid](out/doc-imgs/ellipsoid.png)
+  -- ![ellipsoid](doc-imgs/ellipsoid.png)
   ellipsoid, EllipsoidOpts,
+
+  -- ** Frustum
+  -- |
+  -- ![frustum](doc-imgs/frustum.png)
+  frustum, FrustumOpts,
 
   -- ** Cylinder
   -- |
-  -- ![cylinder](out/doc-imgs/cylinder.png)
+  -- ![cylinder](doc-imgs/cylinder.png)
   cylinder, CylinderOpts,
 
   -- ** Polyhedron
   -- |
-  -- ![polyhedron](out/doc-imgs/polyhedron.png)
+  -- ![polyhedron](doc-imgs/polyhedron.png)
   polyhedron, PolyhedronOpts,
 
   -- * 2D Primitives
   -- ** Text
   -- |
-  -- ![text](out/doc-imgs/text.png)
+  -- ![text](doc-imgs/text.png)
   text, TextOpts,
 
   -- ** Rect
   -- |
-  -- ![rect](out/doc-imgs/rect.png)
+  -- ![rect](doc-imgs/rect.png)
   rect, RectOpts,
 
   -- ** Square
   -- |
-  -- ![square](out/doc-imgs/square.png)
+  -- ![square](doc-imgs/square.png)
   square, SquareOpts,
 
   -- ** Polygon
   -- |
-  -- ![polygon](out/doc-imgs/polygon.png)
+  -- ![polygon](doc-imgs/polygon.png)
   polygon, PolygonOpts,
 
   -- ** Ellipse
   -- |
-  -- ![ellipse](out/doc-imgs/ellipse.png)
+  -- ![ellipse](doc-imgs/ellipse.png)
   ellipse, EllipseOpts,
 
   -- ** Circle
   -- |
-  -- ![circle](out/doc-imgs/circle.png)
+  -- ![circle](doc-imgs/circle.png)
   circle, CircleOpts,
-
-  -- ** Frustum
-  -- |
-  -- ![frustum](out/doc-imgs/frustum.png)
-  frustum, FrustumOpts,
 
   -- * Attributes
   -- ** Size

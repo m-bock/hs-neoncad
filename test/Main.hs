@@ -6,17 +6,9 @@
 module Main (main) where
 
 import qualified DocImgs
-import Test.DocTest
-
--- import qualified VizTest
+import qualified VizTest
 
 main :: IO ()
 main = do
   DocImgs.main
-
-  doctest
-    [ "-isrc"
-    , "src/NeonCAD.hs"
-    ]
-
--- VizTest.main
+  VizTest.main
