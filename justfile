@@ -1,5 +1,6 @@
 DOC_IMGS_DIR := "doc-imgs"
 DOCS_DIR := "docs"
+EXAMPLES_DIR := "examples-out"
 
 gen-doc-imgs:
     rm -rf {{DOC_IMGS_DIR}}
@@ -17,3 +18,8 @@ gen-docs:
 
 push-docs:
     npx gh-pages -d {{DOCS_DIR}}
+
+gen-examples:
+    # rm -rf {{EXAMPLES_DIR}}
+    mkdir -p {{EXAMPLES_DIR}}
+    EXAMPLES_DIR={{EXAMPLES_DIR}} cabal run neoncad-examples
