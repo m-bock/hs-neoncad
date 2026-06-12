@@ -8,71 +8,75 @@ import System.Environment (getEnv)
 import Prelude hiding (mod)
 
 data BoxWithHoles = BoxWithHoles
-    { boxSize :: V3 Int
-    , wallThickness :: Double
-    , holeDiameter :: Double
-    , holeAngles :: V3 Double
-    }
+  { boxSize :: V3 Double,
+    wallThickness :: Double,
+    holeDiameter :: Double,
+    holeAngles :: V3 Double,
+    holePitch :: Double,
+    infinity :: Double,
+    holeFacets :: Int
+  }
 
-infinity :: Double
-infinity = 100
-
-cheeze :: (MonadNeon m) => m Model3D -> m Model3D
-cheeze model =
-    difference model $
-        mod highlight $
-            spinXYZ (45, 0, 45) $
-                spreadX 10 (infinity) $
-                    spreadY 10 (infinity) $
-                        cylinder $
-                            diameter 7 <> height infinity
-
-spreadX :: (MonadNeon m) => Double -> Double -> m Model3D -> m Model3D
-spreadX l fl model =
-    moveX (-(fl / 2)) $
-        unions
-            (map (\i -> moveX (fromIntegral i * l) model) [0 .. n])
+spread :: (MonadNeon m) => (Double -> m Model3D -> m Model3D) -> Double -> Double -> m Model3D -> m Model3D
+spread move l fl model =
+  move (-(fl / 2)) $
+    unions
+      (map (\i -> move (fromIntegral i * l) model) [0 .. n])
   where
     n = floor (fl / l) - 1
 
-spreadY :: (MonadNeon m) => Double -> Double -> m Model3D -> m Model3D
-spreadY l fl model =
-    moveY (-(fl / 2)) $
-        unions
-            (map (\i -> moveY (fromIntegral i * l) model) [0 .. n])
-  where
-    n = floor (fl / l) - 1
+perforation :: (MonadNeon m) => BoxWithHoles -> m Model3D
+perforation opts =
+  spinXYZ opts.holeAngles $
+    spread moveX opts.holePitch opts.infinity $
+      spread moveY opts.holePitch opts.infinity $
+        cylinder $
+          diameter opts.holeDiameter
+            <> height opts.infinity
+            <> facets (count opts.holeFacets)
 
-extra :: Double
-extra = 2
+myBox :: (MonadNeon m) => BoxWithHoles -> m Model3D
+myBox opts =
+  difference
+    ( box $
+        size opts.boxSize
+          <> place center
+    )
+    ( moveZ opts.wallThickness $
+        box $
+          size
+            ( x - (opts.wallThickness * 2),
+              y - (opts.wallThickness * 2),
+              z
+            )
+            <> place center
+    )
+  where
+    (x, y, z) = opts.boxSize
 
 boxWithHoles :: (MonadNeon m) => BoxWithHoles -> m Model3D
 boxWithHoles opts =
-    difference
-        ( box $
-            size (fromIntegral x, fromIntegral y, fromIntegral z)
-                <> place center
-        )
-        ( moveZ wallThickness $
-            box $
-                size
-                    ( fromIntegral x - (wallThickness * 2)
-                    , fromIntegral y - (wallThickness * 2)
-                    , fromIntegral z
-                    )
-                    <> place center
-        )
-  where
-    wallThickness = 5
-    (x, y, z) = opts.boxSize
+  difference
+    (myBox opts)
+    (perforation opts)
 
 example :: (MonadNeon m) => m Model3D
-example = cheeze $ boxWithHoles $ BoxWithHoles{boxSize = (50, 50, 50)}
+example =
+  boxWithHoles $
+    BoxWithHoles
+      { boxSize = (80, 80, 80),
+        wallThickness = 5,
+        holeDiameter = 7,
+        holeAngles = (45, 0, 45),
+        holePitch = 10,
+        infinity = 200,
+        holeFacets = 20
+      }
 
 main :: IO ()
 main = do
-    print "Generating box with holes example"
-    docImgsPath <- getEnv "EXAMPLES_DIR"
-    writeFile
-        (docImgsPath ++ "/box-with-holes.scad")
-        (render3D example)
+  print "Generating box with holes example"
+  docImgsPath <- getEnv "EXAMPLES_DIR"
+  writeFile
+    (docImgsPath ++ "/box-with-holes.scad")
+    (render3D example)

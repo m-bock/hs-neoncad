@@ -68,6 +68,7 @@ executable neoncad-examples
   hs-source-dirs: examples
   build-depends:
     base >=4.14 && <5,
+    linear,
     neoncad,
 
   default-language: GHC2021

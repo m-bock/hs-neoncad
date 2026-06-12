@@ -132,7 +132,7 @@ module NeonCAD (
   -- ** Right
   IsRight(right),
 
-  -- * Modifiers
+  -- * Transformations
   -- ** Move
   CanMoveXYZ(moveXYZ),
   CanMoveXY(moveXY),
@@ -357,6 +357,10 @@ defaultPolyhedronFaces =
 -- / Monad
 -------------------------------------------------------------------------------
 
+class (Monad m) => MonadNeon m where
+  askFacets :: m Facets
+  localFacets :: Facets -> m a -> m a
+
 newtype NeonT m a = NeonT (Facets -> m a)
   deriving (Functor)
 
@@ -409,7 +413,7 @@ instance HasMaxAngle Double Facets where
   maxAngle d = mempty { fa = Just d }
 
 -------------------------------------------------------------------------------
--- / Facts
+-- / Facts / IsLeft
 -------------------------------------------------------------------------------
 
 class IsLeft a where
@@ -431,15 +435,7 @@ instance IsCenter HorizontalAlignment where
   center = HACenter
 
 -------------------------------------------------------------------------------
--- / Classes
--------------------------------------------------------------------------------
-
-class (Monad m) => MonadNeon m where
-  askFacets :: m Facets
-  localFacets :: Facets -> m a -> m a
-
--------------------------------------------------------------------------------
--- / Classes / HasPlacement
+-- / Attributes / HasPlacement
 -------------------------------------------------------------------------------
 
 data Placement = PlacementCenter | PlacementOrigin
@@ -447,9 +443,8 @@ data Placement = PlacementCenter | PlacementOrigin
 class HasPlacement a where
   place :: Placement -> a
 
-
 -------------------------------------------------------------------------------
--- / Classes / IsOrigin
+-- / Facts / IsOrigin
 -------------------------------------------------------------------------------
 
 class IsOrigin a where
@@ -459,21 +454,21 @@ instance IsOrigin Placement where
   origin = PlacementOrigin
 
 -------------------------------------------------------------------------------
--- / Classes / IsCenter
+-- / Facts / IsCenter
 -------------------------------------------------------------------------------
 
 instance IsCenter Placement where
   center = PlacementCenter
 
 -------------------------------------------------------------------------------
--- / Classes / HasHeight
+-- / Attributes / HasHeight
 -------------------------------------------------------------------------------
 
 class HasHeight a where
   height :: Double -> a
 
 -------------------------------------------------------------------------------
--- / Classes / HasDiameter
+-- / Attributes / HasDiameter
 -------------------------------------------------------------------------------
 
 class HasDiameter a where
@@ -489,42 +484,42 @@ class HasDiameterBottom a where
   diameterBottom :: Double -> a
 
 -------------------------------------------------------------------------------
--- / Classes / HasFacets
+-- / Attributes / HasFacets
 -------------------------------------------------------------------------------
 
 class HasFacets a where
   facets :: Facets -> a
 
 -------------------------------------------------------------------------------
--- / Classes / HasPoints
+-- / Attributes / HasPoints
 -------------------------------------------------------------------------------
 
 class HasPoints v a | a -> v where
   points :: v -> a
 
 -------------------------------------------------------------------------------
--- / Classes / HasSize
+-- / Attributes / HasSize
 -------------------------------------------------------------------------------
 
 class HasSize v a | a -> v where
   size :: v -> a
 
 -------------------------------------------------------------------------------
--- / Classes / HasFaces
+-- / Attributes / HasFaces
 -------------------------------------------------------------------------------
 
 class HasFaces v a | a -> v where
   faces :: v -> a
 
 -------------------------------------------------------------------------------
--- / Classes / HasConvexity
+-- / Attributes / HasConvexity
 -------------------------------------------------------------------------------
 
 class HasConvexity a where
   convexity :: Int -> a
 
 -------------------------------------------------------------------------------
--- / Classes / Comment
+-- / Attributes / Comment
 -------------------------------------------------------------------------------
 
 class CanComment a where
@@ -541,7 +536,7 @@ instance MonadNeon m => CanComment (m Model3D) where
     pure $ Comment3D txt model
 
 -------------------------------------------------------------------------------
--- / Classes / CanScale
+-- / Modifiers / CanScale
 -------------------------------------------------------------------------------
 
 class CanScaleXYZ a where
@@ -610,7 +605,7 @@ instance MonadNeon m => CanScale (m Model3D) where
   scale x modelM = scaleXYZ (x, x, x) modelM
 
 -------------------------------------------------------------------------------
--- / Modifiers / CanMove
+-- / Transformations / CanMove
 -------------------------------------------------------------------------------
 
 class CanMoveXYZ a where
@@ -680,7 +675,7 @@ instance (MonadNeon m) => CanMoveZ (m Model3D) where
 
 
 -------------------------------------------------------------------------------
--- / Classes / CanResize
+-- / Transformations / CanResize
 -------------------------------------------------------------------------------
 
 class CanResizeXYZ a where
@@ -746,7 +741,7 @@ instance (MonadNeon m) => CanResizeZ (m Model3D) where
   resizeZ z modelM = resizeXYZ (1, 1, z) modelM
 
 -------------------------------------------------------------------------------
--- / Classes / CanResize Auto
+-- / Transformations / CanResize Auto
 -------------------------------------------------------------------------------
 
 class CanResizeAutoXY a where
@@ -815,7 +810,7 @@ instance (MonadNeon m) => CanResizeAutoZ (m Model3D) where
 
 
 -------------------------------------------------------------------------------
--- / Classes / CanSpin
+-- / Transformations / CanSpin
 -------------------------------------------------------------------------------
 
 class CanSpinXYZ a where
@@ -874,7 +869,7 @@ instance (MonadNeon m) => CanSpinZ (m Model3D) where
   spinZ z modelM = spinXYZ (0, 0, z) modelM
 
 -------------------------------------------------------------------------------
--- / Classes / CanMirror
+-- / Transformations / CanMirror
 -------------------------------------------------------------------------------
 
 class CanMirrorXYZ a where
@@ -943,7 +938,7 @@ instance (MonadNeon m) => CanMirrorZ (m Model3D) where
   mirrorZ z modelM = mirrorXYZ (0, 0, z) modelM
 
 -------------------------------------------------------------------------------
--- / Classes / Color
+-- / Attributes / Color
 -------------------------------------------------------------------------------
 
 data ColorOpts f = ColorOpts {
@@ -997,7 +992,7 @@ instance (MonadNeon m) => CanColoring (m Model3D) where
       opts = bzipWith orDef fallbackColorOpts optsMay
 
 -------------------------------------------------------------------------------
--- / Classes / Hull
+-- / Transformations / Hull
 -------------------------------------------------------------------------------
 
 class CanHull a where
@@ -1019,7 +1014,7 @@ instance (MonadNeon m) => CanHull (m Model3D) where
     pure $ Transform3D Hull3D [model]
 
 -------------------------------------------------------------------------------
--- / Classes / Union
+-- / Boolean Operations / Union
 -------------------------------------------------------------------------------
 
 class CanUnion a where
@@ -1055,7 +1050,7 @@ instance (MonadNeon m) => CanUnion (m Model3D) where
     pure $ BoolOp3D Union3D models
 
 -------------------------------------------------------------------------------
--- / Classes / Intersection
+-- / Boolean Operations / Intersection
 -------------------------------------------------------------------------------
 
 class CanIntersection a where
@@ -1089,7 +1084,7 @@ instance (MonadNeon m) => CanIntersection (m Model3D) where
     pure $ BoolOp3D Intersection3D models
 
 -------------------------------------------------------------------------------
--- / Classes / Difference
+-- / Boolean Operations / Difference
 -------------------------------------------------------------------------------
 
 class CanDifference a where
@@ -1114,7 +1109,7 @@ instance (MonadNeon m) => CanDifference (m Model3D) where
     pure $ BoolOp3D Difference3D [modelA, modelB]
 
 -------------------------------------------------------------------------------
--- / Classes / Modifiers
+-- / Transformations / Modifiers
 -------------------------------------------------------------------------------
 
 class CanMod a where
@@ -1147,7 +1142,7 @@ instance (MonadNeon m) => CanMod (m Model3D) where
     pure $ Modifier3D m model
 
 -------------------------------------------------------------------------------
--- / 2D / Primitive / Circle
+-- / Primitives / 2D / Circle
 -------------------------------------------------------------------------------
 
 newtype CircleOpts = CircleOpts (CircleOptsInternal First)
@@ -1204,7 +1199,7 @@ circle (CircleOpts optsMay) = do
     }
 
 -------------------------------------------------------------------------------
--- / 2D / Primitive / Ellipse
+-- / Primitives / 2D / Ellipse
 -------------------------------------------------------------------------------
 
 newtype EllipseOpts = EllipseOpts (EllipseOptsInternal First)
@@ -1251,7 +1246,7 @@ ellipse (EllipseOpts optsMay) = do
       circle (diameter (max dx dy) <> facets (get opts.ellipseOptsFacets))
 
 -------------------------------------------------------------------------------
--- / 2D / Primitive / Rect
+-- / Primitives / 2D / Rect
 -------------------------------------------------------------------------------
 
 newtype RectOpts = RectOpts (RectOptsInternal First)
@@ -1298,7 +1293,7 @@ rect (RectOpts optsMay) = pure $ Primitive2D $ Square2D
     opts = bzipWith orDef fallbackRectOpts optsMay
 
 -------------------------------------------------------------------------------
--- / 2D / Primitive / Square
+-- / Primitives / 2D / Square
 -------------------------------------------------------------------------------
 
 newtype SquareOpts = SquareOpts (SquareOptsInternal First)
@@ -1347,7 +1342,7 @@ square (SquareOpts optsMay) = pure $ Primitive2D $ Square2D
     s = get opts.squareOptsSize
 
 -------------------------------------------------------------------------------
--- / 2D / Primitive / Polygon
+-- / Primitives / 2D / Polygon
 -------------------------------------------------------------------------------
 
 -- Paths are not supported yet, because they can be modeled with difference.
@@ -1396,7 +1391,7 @@ polygon (PolygonOpts optsMay) = pure $ Primitive2D $ Polygon2D
     opts = bzipWith orDef fallbackPolygonOpts optsMay
 
 -------------------------------------------------------------------------------
--- / 2D / Primitive / Text
+-- / Primitives / 2D / Text
 -------------------------------------------------------------------------------
 
 class HasFontName a where
@@ -1531,7 +1526,7 @@ text s (TextOpts optsMay) = do
     opts = bzipWith orDef fallbackTextOpts optsMay
 
 -------------------------------------------------------------------------------
--- / 2D / Transform / Offset
+-- / Transformations / Offset
 -------------------------------------------------------------------------------
 
 offset :: (MonadNeon m) => Double -> m Model2D -> m Model2D
@@ -1551,7 +1546,7 @@ offset d modelM = do
 -- offsetCut = undefined
 
 -------------------------------------------------------------------------------
--- / 3D / Primitive / Box
+-- / Primitives / 3D / Box
 -------------------------------------------------------------------------------
 
 newtype BoxOpts = BoxOpts (BoxOptsInternal First)
@@ -1597,7 +1592,7 @@ box (BoxOpts optsMay) = pure $ Primitive3D $ Cube3D
     opts = bzipWith orDef fallbackBoxOpts optsMay
 
 -------------------------------------------------------------------------------
--- / 3D / Primitive / Cube
+-- / Primitives / 3D / Cube
 -------------------------------------------------------------------------------
 
 newtype CubeOpts = CubeOpts (CubeOptsInternal First)
@@ -1646,7 +1641,7 @@ cube (CubeOpts optsMay) = pure $ Primitive3D $ Cube3D
 
 
 -------------------------------------------------------------------------------
--- / 3D / Primitive / Frustum
+-- / Primitives / 3D / Frustum
 -------------------------------------------------------------------------------
 
 newtype FrustumOpts = FrustumOpts (FrustumOptsInternal First)
@@ -1727,7 +1722,7 @@ frustum (FrustumOpts optsMay) = do
     }
 
 -------------------------------------------------------------------------------
--- / 3D / Primitive / Cylinder
+-- / Primitives / 3D / Cylinder
 -------------------------------------------------------------------------------
 
 newtype CylinderOpts = CylinderOpts (CylinderOptsInternal First)
@@ -1906,7 +1901,7 @@ ellipsoid (EllipsoidOpts optsMay) = do
     }
 
 -------------------------------------------------------------------------------
--- / 3D / Primitive / Polyhedron
+-- / Primitives / 3D / Polyhedron
 -------------------------------------------------------------------------------
 
 newtype PolyhedronOpts = PolyhedronOpts (PolyhedronOptsInternal First)
