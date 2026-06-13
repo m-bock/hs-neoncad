@@ -17,26 +17,40 @@ data BoxWithHoles = BoxWithHoles
     holeFacets :: Int
   }
 
-spread :: (MonadNeon m) => (Double -> m Model3D -> m Model3D) -> Double -> Double -> m Model3D -> m Model3D
-spread move l fl model =
+-------------------------------------------------------------------------------
+-- Utils
+-------------------------------------------------------------------------------
+
+distribute :: (MonadNeon m) => (Double -> m Model3D -> m Model3D) -> Double -> Double -> m Model3D -> m Model3D
+distribute move l fl model =
   move (-(fl / 2)) $
     unions
       (map (\i -> move (fromIntegral i * l) model) [0 .. n])
   where
     n = floor (fl / l) - 1
 
-perforation :: (MonadNeon m) => BoxWithHoles -> m Model3D
-perforation opts =
+distributeX :: (MonadNeon m) => Double -> Double -> m Model3D -> m Model3D
+distributeX = distribute moveX
+
+distributeY :: (MonadNeon m) => Double -> Double -> m Model3D -> m Model3D
+distributeY = distribute moveY
+
+-------------------------------------------------------------------------------
+-- Draw Functions
+-------------------------------------------------------------------------------
+
+drawPerforation :: (MonadNeon m) => BoxWithHoles -> m Model3D
+drawPerforation opts =
   spinXYZ opts.holeAngles $
-    spread moveX opts.holePitch opts.infinity $
-      spread moveY opts.holePitch opts.infinity $
+    distributeX opts.holePitch opts.infinity $
+      distributeY opts.holePitch opts.infinity $
         cylinder $
           diameter opts.holeDiameter
             <> height opts.infinity
             <> facets (count opts.holeFacets)
 
-myBox :: (MonadNeon m) => BoxWithHoles -> m Model3D
-myBox opts =
+drawBox :: (MonadNeon m) => BoxWithHoles -> m Model3D
+drawBox opts =
   difference
     ( box $
         size opts.boxSize
@@ -54,15 +68,15 @@ myBox opts =
   where
     (x, y, z) = opts.boxSize
 
-boxWithHoles :: (MonadNeon m) => BoxWithHoles -> m Model3D
-boxWithHoles opts =
+drawBoxWithHoles :: (MonadNeon m) => BoxWithHoles -> m Model3D
+drawBoxWithHoles opts =
   difference
-    (myBox opts)
-    (perforation opts)
+    (drawBox opts)
+    (drawPerforation opts)
 
 example :: (MonadNeon m) => m Model3D
 example =
-  boxWithHoles $
+  drawBoxWithHoles $
     BoxWithHoles
       { boxSize = (80, 80, 80),
         wallThickness = 5,
@@ -75,7 +89,6 @@ example =
 
 main :: IO ()
 main = do
-  print "Generating box with holes example"
   docImgsPath <- getEnv "EXAMPLES_DIR"
   writeFile
     (docImgsPath ++ "/box-with-holes.scad")
