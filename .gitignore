@@ -1,6 +1,7 @@
 /out/
 /doc-imgs/
 /docs/
+/examples-out/
 
 # Cabal / GHC
 dist/
