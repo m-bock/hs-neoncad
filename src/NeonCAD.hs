@@ -121,6 +121,8 @@ module NeonCAD (
   HasPoints(points),
   -- ** Height
   HasHeight(height),
+  -- ** Angle
+  HasAngle(angle),
 
   -- * Facts
   -- ** Center
@@ -517,6 +519,13 @@ class HasFaces v a | a -> v where
 
 class HasConvexity a where
   convexity :: Int -> a
+
+-------------------------------------------------------------------------------
+-- / Attributes / HasAngle
+-------------------------------------------------------------------------------
+
+class HasAngle a where
+  angle :: Double -> a
 
 -------------------------------------------------------------------------------
 -- / Attributes / Comment
@@ -2047,6 +2056,10 @@ fallbackExtrudeRotationalOpts fc = ExtrudeRotationalOpts {
   extrudeRotationalOptsConvexity = pure defaultConvexity,
   extrudeRotationalOptsFacets    = pure fc
 }
+
+
+instance HasAngle (ExtrudeRotationalOpts First) where
+  angle a = mempty { extrudeRotationalOptsAngle = First $ Just a }
 
 extrudeRotational :: (MonadNeon m) => ExtrudeRotationalOpts First -> m Model2D -> m Model3D
 extrudeRotational optsMay modelM = do
