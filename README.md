@@ -8,4 +8,4 @@ Haskell DSL to generate 2D and 3D models for OpenSCAD.
 
 ## Links
 - [API Documentation](https://m-bock.github.io/hs-neoncad/NeonCAD.html)
-- [Examples](https://github.com/m-bock/hs-neoncad/tree/main/examples)
+- [Examples](https://github.com/m-bock/hs-neoncad/tree/main/examples/Examples)
