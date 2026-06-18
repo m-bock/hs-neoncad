@@ -12,8 +12,12 @@ _render-scad dir size:
         rm tmp.png; \
     done
 
-gen-doc-imgs:
+clean:
     rm -rf {{DOC_IMGS_DIR}}
+    rm -rf {{DOCS_DIR}}
+    rm -rf {{EXAMPLES_DIR}}
+
+gen-doc-imgs:
     mkdir -p {{DOC_IMGS_DIR}}
     DOC_IMGS_DIR={{DOC_IMGS_DIR}} cabal test
     just _render-scad {{DOC_IMGS_DIR}} {{DOC_IMG_SIZE}}

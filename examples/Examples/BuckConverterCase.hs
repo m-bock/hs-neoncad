@@ -19,78 +19,117 @@ data BuckConverterCase = BuckConverterCase
     bcGap :: Double
   }
 
+twice :: Double -> Double
+twice x = x * 2
+
+half :: Double -> Double
+half x = x / 2
+
+_x :: V3 a -> a
+_x (x, _, _) = x
+
+_y :: V3 a -> a
+_y (_, y, _) = y
+
+_z :: V3 a -> a
+_z (_, _, z) = z
+
+clear :: Double
+clear = 0.1
+
 drawBuckConverterCase :: (MonadNeon m) => BuckConverterCase -> m Model3D
 drawBuckConverterCase opts =
-  unions
-    [ moveY opts.bcInfinity $
-        difference
-          ( box $
-              size
-                ( opts.bcOuterWidth + (opts.bcWall * 2) + (opts.bcGap * 2),
-                  opts.bcOuterDepth + (opts.bcWall * 2) + (opts.bcGap * 2),
-                  opts.bcOuterHeight + (opts.bcWall * 2) + (opts.bcGap * 2)
-                )
-                -- <> place center
-          )
-          ( mod highlight $
-              moveZ (-opts.bcWall) $
-                box $
+  let lidOuterWidth = opts.bcOuterWidth
+      lidOuterDepth = opts.bcOuterDepth
+      lidOuterHeight = opts.bcOuterHeight
+
+      lidInnerWidth = lidOuterWidth - twice opts.bcWall
+      lidInnerDepth = lidOuterDepth - twice opts.bcWall
+      lidInnerHeight = lidOuterHeight - opts.bcWall
+
+      baseOuterWidth = lidInnerWidth - twice opts.bcGap
+      baseOuterDepth = lidInnerDepth - twice opts.bcGap
+      baseOuterHeight = lidInnerHeight - opts.bcGap
+
+      baseInnerWidth = baseOuterWidth - twice opts.bcWall
+      baseInnerDepth = baseOuterDepth - twice opts.bcWall
+      baseInnerHeight = baseOuterHeight - opts.bcWall
+   in unions
+        [ moveY 50 $
+            difference
+              ( box $
                   size
-                    ( opts.bcOuterWidth + (opts.bcGap * 2),
-                      opts.bcOuterDepth + (opts.bcGap * 2),
-                      opts.bcOuterHeight + (opts.bcGap * 2)
+                    ( lidOuterWidth,
+                      lidOuterDepth,
+                      lidOuterHeight
                     )
-                    --    <> place origin
-          ),
-      differences
-        ( box $
-            size (opts.bcOuterWidth, opts.bcOuterDepth, opts.bcOuterHeight)
-            -- <> place center
-        )
-        [ moveZ opts.bcWall $
-            box $
-              size
-                ( opts.bcOuterWidth - 2 * opts.bcWall,
-                  opts.bcOuterDepth - (opts.bcPillarSize * 2),
-                  opts.bcOuterHeight
-                ),
-          -- <> place center,
-          moveZ
-            opts.bcWall
-            $ box
-            $ size
-              ( opts.bcOuterWidth - (opts.bcPillarSize * 2),
-                opts.bcOuterDepth - 2 * opts.bcWall,
-                opts.bcOuterHeight
+                    <> placeZ origin
+              )
+              ( mod highlight $
+                  moveZ (negate clear) $
+                    box $
+                      size
+                        ( lidInnerWidth,
+                          lidInnerDepth,
+                          lidInnerHeight + clear
+                        )
+                        <> placeZ origin
               ),
-          -- <> place center
-
-          spinY 90 $ cylinder $ height opts.bcInfinity <> diameter opts.bcPillarSize, -- <> place center,
-          moveZ (opts.bcOuterHeight / 2) $
-            spinX 90 $
-              extrudeLinear center $
-                ellipse $
-                  size
-                    ( opts.bcOuterWidth - (opts.bcPillarSize * 2),
-                      (opts.bcOuterHeight * 2) - (opts.bcWall * 4)
-                    ),
-          -- <> place center
-
-          let screw =
-                moveZ ((opts.bcOuterHeight / 2) - opts.bcScrewHeight) $
-                  cylinder $
-                    height (opts.bcScrewHeight + opts.bcGap) <> diameter opts.bcScrewDia --  <> place origin
-              p2 = opts.bcPillarSize / 2
-              d2 = (opts.bcOuterDepth / 2) - p2
-              w2 = (opts.bcOuterWidth / 2) - p2
-           in unions
-                [ moveXY (-w2, d2) screw,
-                  moveXY (w2, d2) screw,
-                  moveXY (-w2, -d2) screw,
-                  moveXY (w2, -d2) screw
-                ]
+          differences
+            ( box $
+                size (baseOuterWidth, baseOuterDepth, baseOuterHeight)
+                  <> placeZ origin
+            )
+            [ mod highlight $
+                moveZ opts.bcWall $
+                  box $
+                    size (baseInnerWidth, baseInnerDepth, baseInnerHeight + clear)
+                      <> placeZ origin
+            ]
         ]
-    ]
+
+-- moveZ opts.bcWall $
+--   box $
+--     size
+--       ( opts.bcOuterWidth - 2 * opts.bcWall,
+--         opts.bcOuterDepth - (opts.bcPillarSize * 2),
+--         opts.bcOuterHeight
+--       ),
+-- -- <> place center,
+-- moveZ
+--   opts.bcWall
+--   $ box
+--   $ size
+--     ( opts.bcOuterWidth - (opts.bcPillarSize * 2),
+--       opts.bcOuterDepth - 2 * opts.bcWall,
+--       opts.bcOuterHeight
+--     ),
+-- -- <> place center
+
+-- spinY 90 $ cylinder $ height opts.bcInfinity <> diameter opts.bcPillarSize, -- <> place center,
+-- moveZ (opts.bcOuterHeight / 2) $
+--   spinX 90 $
+--     extrudeLinear center $
+--       ellipse $
+--         size
+--           ( opts.bcOuterWidth - (opts.bcPillarSize * 2),
+--             (opts.bcOuterHeight * 2) - (opts.bcWall * 4)
+--           ),
+-- -- <> place center
+
+-- let screw =
+--       moveZ ((opts.bcOuterHeight / 2) - opts.bcScrewHeight) $
+--         cylinder $
+--           height (opts.bcScrewHeight + opts.bcGap) <> diameter opts.bcScrewDia --  <> place origin
+--     p2 = opts.bcPillarSize / 2
+--     d2 = (opts.bcOuterDepth / 2) - p2
+--     w2 = (opts.bcOuterWidth / 2) - p2
+--  in unions
+--       [ moveXY (-w2, d2) screw,
+--         moveXY (w2, d2) screw,
+--         moveXY (-w2, -d2) screw,
+--         moveXY (w2, -d2) screw
+--       ]
 
 example :: (MonadNeon m) => m Model3D
 example =
@@ -104,7 +143,7 @@ example =
         bcInfinity = 200,
         bcScrewDia = 3,
         bcScrewHeight = 15,
-        bcGap = 2
+        bcGap = 1
       }
 
 main :: IO ()

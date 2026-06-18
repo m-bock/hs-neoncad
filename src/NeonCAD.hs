@@ -2238,7 +2238,7 @@ cylinder (CylinderOpts optsMay) = do
       dia = get opts.cylinderOptsDiameter
 
   handlePlacement3
-    (PlacementCenter, PlacementCenter, PlacementCenter)
+    (PlacementCenter, PlacementCenter, PlacementOrigin)
     (get opts.cylinderOptsPlacementX, get opts.cylinderOptsPlacementY, get opts.cylinderOptsPlacementZ)
     (dia, dia, h)
     $ pure

@@ -54,7 +54,6 @@ drawBox opts =
   difference
     ( box $
         size opts.boxSize
-        --    <> place center
     )
     ( moveZ opts.wallThickness $
         box $
@@ -63,7 +62,6 @@ drawBox opts =
               y - (opts.wallThickness * 2),
               z
             )
-            --       <> place center
     )
   where
     (x, y, z) = opts.boxSize
