@@ -64,6 +64,7 @@ executable neoncad-examples
   main-is: Main.hs
   other-modules:
     Examples.BoxWithHoles
+    Examples.BuckConverterCase
 
   hs-source-dirs: examples
   build-depends:
