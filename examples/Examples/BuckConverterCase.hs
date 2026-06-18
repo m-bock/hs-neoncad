@@ -70,27 +70,36 @@ drawBuckConverterCase opts =
       drawLid =
         comment "lid" $
           differences
-            ( box $
-                size
-                  ( lidOuterWidth,
-                    lidOuterDepth,
-                    lidOuterHeight
-                  )
-                  <> placeZ origin
-            )
-            [ moveZ (negate clear) $
+            ( comment "outer box" $
                 box $
                   size
-                    ( lidInnerWidth,
-                      lidInnerDepth,
-                      lidInnerHeight + clear
+                    ( lidOuterWidth,
+                      lidOuterDepth,
+                      lidOuterHeight
                     )
-                    <> placeZ origin,
-              unions $ flip map vs $ \v ->
-                moveXY v $
-                  comment "screw hole" $
-                    cylinder $
-                      diameter (screwSize - gap) <> height opts.bcInfinity
+                    <> placeZ origin
+            )
+            [ comment "inner box" $
+                moveZ (negate clear) $
+                  box $
+                    size
+                      ( lidInnerWidth,
+                        lidInnerDepth,
+                        lidInnerHeight + clear
+                      )
+                      <> placeZ origin,
+              comment "screw holes" $
+                unions $
+                  flip map vs $ \v ->
+                    moveXY v $
+                      comment "screw hole" $
+                        cylinder $
+                          diameter (screwSize + gap) <> height opts.bcInfinity,
+              comment "tunnel" $
+                spinY 90 $
+                  extrudeLinear center $
+                    ellipse $
+                      size (twice lidOuterHeight - 4 * wall, lidOuterDepth - twice wall)
             ]
 
       drawBaseBox =
@@ -107,18 +116,20 @@ drawBuckConverterCase opts =
             ]
 
       drawPillarPos =
-        box $
-          size
-            ( opts.bcPillarSize,
-              opts.bcPillarSize,
-              baseOuterHeight
-            )
-            <> placeZ origin
+        comment "pillar" $
+          box $
+            size
+              ( opts.bcPillarSize,
+                opts.bcPillarSize,
+                baseOuterHeight
+              )
+              <> placeZ origin
 
       drawScrewHolder =
-        moveZ (baseOuterHeight - screwHeight) $
-          cylinder $
-            diameter screwSize <> height (screwHeight + clear) <> placeZ origin
+        comment "screw holder" $
+          moveZ (baseOuterHeight - screwHeight) $
+            cylinder $
+              diameter (screwSize + gap) <> height (screwHeight + clear) <> placeZ origin
 
       drawHalfPipe =
         comment "half pipe" $
@@ -171,12 +182,12 @@ example =
         bcOuterWidth = 50,
         bcOuterDepth = 30,
         bcOuterHeight = 20,
-        bcPillarSize = 5,
+        bcPillarSize = 4,
         bcInfinity = 200,
-        bcScrewDia = 3,
+        bcScrewDia = 2,
         bcScrewHeight = 15,
         bcGap = 0.5,
-        bcHoleDia = 5
+        bcHoleDia = 4
       }
 
 main :: IO ()
