@@ -185,7 +185,7 @@ example =
         bcPillarSize = 4,
         bcInfinity = 200,
         bcScrewDia = 2,
-        bcScrewHeight = 15,
+        bcScrewHeight = 5,
         bcGap = 0.5,
         bcHoleDia = 4
       }
