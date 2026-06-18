@@ -1,5 +1,8 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE NoFieldSelectors #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Avoid lambda using `infix`" #-}
 
 module Examples.BuckConverterCase where
 
@@ -16,7 +19,8 @@ data BuckConverterCase = BuckConverterCase
     bcInfinity :: Double,
     bcScrewDia :: Double,
     bcScrewHeight :: Double,
-    bcGap :: Double
+    bcGap :: Double,
+    bcHoleDia :: Double
   }
 
 twice :: Double -> Double
@@ -53,97 +57,126 @@ drawBuckConverterCase opts =
 
       baseInnerWidth = baseOuterWidth - twice opts.bcWall
       baseInnerDepth = baseOuterDepth - twice opts.bcWall
-      baseInnerHeight = baseOuterHeight - opts.bcWall
-   in unions
-        [ moveY 50 $
-            difference
-              ( box $
+      baseInnerHeight = baseOuterHeight - wall
+
+      wall = opts.bcWall
+      pillarSize = opts.bcPillarSize
+      screwSize = opts.bcScrewDia
+      screwHeight = opts.bcScrewHeight
+      holeDia = opts.bcHoleDia
+      gap = opts.bcGap
+      isPrint = True
+
+      drawLid =
+        comment "lid" $
+          differences
+            ( box $
+                size
+                  ( lidOuterWidth,
+                    lidOuterDepth,
+                    lidOuterHeight
+                  )
+                  <> placeZ origin
+            )
+            [ moveZ (negate clear) $
+                box $
                   size
-                    ( lidOuterWidth,
-                      lidOuterDepth,
-                      lidOuterHeight
+                    ( lidInnerWidth,
+                      lidInnerDepth,
+                      lidInnerHeight + clear
                     )
-                    <> placeZ origin
-              )
-              ( mod highlight $
-                  moveZ (negate clear) $
-                    box $
-                      size
-                        ( lidInnerWidth,
-                          lidInnerDepth,
-                          lidInnerHeight + clear
-                        )
-                        <> placeZ origin
-              ),
+                    <> placeZ origin,
+              unions $ flip map vs $ \v ->
+                moveXY v $
+                  comment "screw hole" $
+                    cylinder $
+                      diameter (screwSize - gap) <> height opts.bcInfinity
+            ]
+
+      drawBaseBox =
+        comment "base box" $
           differences
             ( box $
                 size (baseOuterWidth, baseOuterDepth, baseOuterHeight)
                   <> placeZ origin
             )
-            [ mod highlight $
-                moveZ opts.bcWall $
-                  box $
-                    size (baseInnerWidth, baseInnerDepth, baseInnerHeight + clear)
-                      <> placeZ origin
+            [ moveZ opts.bcWall $
+                box $
+                  size (baseInnerWidth, baseInnerDepth, baseInnerHeight + clear)
+                    <> placeZ origin
+            ]
+
+      drawPillarPos =
+        box $
+          size
+            ( opts.bcPillarSize,
+              opts.bcPillarSize,
+              baseOuterHeight
+            )
+            <> placeZ origin
+
+      drawScrewHolder =
+        moveZ (baseOuterHeight - screwHeight) $
+          cylinder $
+            diameter screwSize <> height (screwHeight + clear) <> placeZ origin
+
+      drawHalfPipe =
+        comment "half pipe" $
+          moveZ (baseOuterHeight + twice wall) $
+            spinX 90 $
+              extrudeLinear (height (baseOuterDepth + twice clear) <> center) $
+                mod highlight $
+                  ellipse $
+                    size
+                      ( baseOuterWidth - twice wall,
+                        twice baseOuterHeight
+                      )
+
+      x = half baseOuterWidth - half pillarSize
+      y = half baseOuterDepth - half pillarSize
+      vs =
+        [(x, y), (x, -y), (-x, y), (-x, -y)]
+   in unions
+        [ ( if isPrint
+              then
+                moveY (twice lidOuterDepth)
+                  . moveZ lidOuterHeight
+                  . spinX 180
+              else id
+          )
+            drawLid,
+          differences
+            ( unions
+                [ comment "wall" $
+                    difference drawBaseBox drawHalfPipe,
+                  comment "pillars" $
+                    unions (map (\v -> moveXY v drawPillarPos) vs)
+                ]
+            )
+            [ comment "wire holes" $
+                moveZ (half baseOuterHeight) $
+                  spinY 90 $
+                    cylinder $
+                      diameter holeDia <> height opts.bcInfinity,
+              comment "screw holders" $
+                unions (map (\v -> moveXY v drawScrewHolder) vs)
             ]
         ]
-
--- moveZ opts.bcWall $
---   box $
---     size
---       ( opts.bcOuterWidth - 2 * opts.bcWall,
---         opts.bcOuterDepth - (opts.bcPillarSize * 2),
---         opts.bcOuterHeight
---       ),
--- -- <> place center,
--- moveZ
---   opts.bcWall
---   $ box
---   $ size
---     ( opts.bcOuterWidth - (opts.bcPillarSize * 2),
---       opts.bcOuterDepth - 2 * opts.bcWall,
---       opts.bcOuterHeight
---     ),
--- -- <> place center
-
--- spinY 90 $ cylinder $ height opts.bcInfinity <> diameter opts.bcPillarSize, -- <> place center,
--- moveZ (opts.bcOuterHeight / 2) $
---   spinX 90 $
---     extrudeLinear center $
---       ellipse $
---         size
---           ( opts.bcOuterWidth - (opts.bcPillarSize * 2),
---             (opts.bcOuterHeight * 2) - (opts.bcWall * 4)
---           ),
--- -- <> place center
-
--- let screw =
---       moveZ ((opts.bcOuterHeight / 2) - opts.bcScrewHeight) $
---         cylinder $
---           height (opts.bcScrewHeight + opts.bcGap) <> diameter opts.bcScrewDia --  <> place origin
---     p2 = opts.bcPillarSize / 2
---     d2 = (opts.bcOuterDepth / 2) - p2
---     w2 = (opts.bcOuterWidth / 2) - p2
---  in unions
---       [ moveXY (-w2, d2) screw,
---         moveXY (w2, d2) screw,
---         moveXY (-w2, -d2) screw,
---         moveXY (w2, -d2) screw
---       ]
 
 example :: (MonadNeon m) => m Model3D
 example =
   drawBuckConverterCase $
     BuckConverterCase
-      { bcWall = 2,
+      { bcWall = 1.5,
         bcOuterWidth = 50,
         bcOuterDepth = 30,
         bcOuterHeight = 20,
-        bcPillarSize = 7,
+        bcPillarSize = 5,
         bcInfinity = 200,
         bcScrewDia = 3,
         bcScrewHeight = 15,
-        bcGap = 1
+        bcGap = 0.5,
+        bcHoleDia = 5
       }
 
 main :: IO ()
