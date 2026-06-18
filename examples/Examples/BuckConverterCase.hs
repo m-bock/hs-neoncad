@@ -150,7 +150,7 @@ drawBuckConverterCase opts =
    in unions
         [ ( if isPrint
               then
-                moveY (twice lidOuterDepth)
+                moveY 45
                   . moveZ lidOuterHeight
                   . spinX 180
               else id
@@ -179,9 +179,9 @@ example =
   drawBuckConverterCase $
     BuckConverterCase
       { bcWall = 1.5,
-        bcOuterWidth = 70,
-        bcOuterDepth = 40,
-        bcOuterHeight = 30,
+        bcOuterWidth = 60,
+        bcOuterDepth = 35,
+        bcOuterHeight = 20,
         bcPillarSize = 4,
         bcInfinity = 200,
         bcScrewDia = 2,
