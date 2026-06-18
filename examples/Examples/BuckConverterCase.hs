@@ -179,8 +179,8 @@ example =
   drawBuckConverterCase $
     BuckConverterCase
       { bcWall = 1.5,
-        bcOuterWidth = 50,
-        bcOuterDepth = 30,
+        bcOuterWidth = 70,
+        bcOuterDepth = 40,
         bcOuterHeight = 20,
         bcPillarSize = 4,
         bcInfinity = 200,
