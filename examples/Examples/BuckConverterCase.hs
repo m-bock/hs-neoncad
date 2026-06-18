@@ -30,7 +30,7 @@ drawBuckConverterCase opts =
                   opts.bcOuterDepth + (opts.bcWall * 2) + (opts.bcGap * 2),
                   opts.bcOuterHeight + (opts.bcWall * 2) + (opts.bcGap * 2)
                 )
-                <> place center
+                -- <> place center
           )
           ( mod highlight $
               moveZ (-opts.bcWall) $
@@ -40,12 +40,12 @@ drawBuckConverterCase opts =
                       opts.bcOuterDepth + (opts.bcGap * 2),
                       opts.bcOuterHeight + (opts.bcGap * 2)
                     )
-                    <> place origin
+                    --    <> place origin
           ),
       differences
         ( box $
             size (opts.bcOuterWidth, opts.bcOuterDepth, opts.bcOuterHeight)
-              <> place center
+            -- <> place center
         )
         [ moveZ opts.bcWall $
             box $
@@ -53,17 +53,19 @@ drawBuckConverterCase opts =
                 ( opts.bcOuterWidth - 2 * opts.bcWall,
                   opts.bcOuterDepth - (opts.bcPillarSize * 2),
                   opts.bcOuterHeight
-                )
-                <> place center,
-          moveZ opts.bcWall $
-            box $
-              size
-                ( opts.bcOuterWidth - (opts.bcPillarSize * 2),
-                  opts.bcOuterDepth - 2 * opts.bcWall,
-                  opts.bcOuterHeight
-                )
-                <> place center,
-          spinY 90 $ cylinder $ height opts.bcInfinity <> diameter opts.bcPillarSize <> place center,
+                ),
+          -- <> place center,
+          moveZ
+            opts.bcWall
+            $ box
+            $ size
+              ( opts.bcOuterWidth - (opts.bcPillarSize * 2),
+                opts.bcOuterDepth - 2 * opts.bcWall,
+                opts.bcOuterHeight
+              ),
+          -- <> place center
+
+          spinY 90 $ cylinder $ height opts.bcInfinity <> diameter opts.bcPillarSize, -- <> place center,
           moveZ (opts.bcOuterHeight / 2) $
             spinX 90 $
               extrudeLinear center $
@@ -71,12 +73,13 @@ drawBuckConverterCase opts =
                   size
                     ( opts.bcOuterWidth - (opts.bcPillarSize * 2),
                       (opts.bcOuterHeight * 2) - (opts.bcWall * 4)
-                    )
-                    <> place center,
+                    ),
+          -- <> place center
+
           let screw =
                 moveZ ((opts.bcOuterHeight / 2) - opts.bcScrewHeight) $
                   cylinder $
-                    height (opts.bcScrewHeight + opts.bcGap) <> diameter opts.bcScrewDia <> place origin
+                    height (opts.bcScrewHeight + opts.bcGap) <> diameter opts.bcScrewDia --  <> place origin
               p2 = opts.bcPillarSize / 2
               d2 = (opts.bcOuterDepth / 2) - p2
               w2 = (opts.bcOuterWidth / 2) - p2

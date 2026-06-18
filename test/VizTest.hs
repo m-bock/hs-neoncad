@@ -141,8 +141,8 @@ info2D =
           unions $
             colorize $
               level
-                [ circle $ diameter 50 <> place origin,
-                  circle $ diameter 50 <> place center
+                [ circle $ diameter 50 <> placeXY origin,
+                  circle $ diameter 50 <> placeXY center
                 ]
         )
       ]
@@ -150,6 +150,14 @@ info2D =
     ( "Ellipse",
       [ ( "Default",
           to3D $ ellipse mempty
+        ),
+        ( "placements",
+          unions $
+            colorize $
+              level
+                [ ellipse $ size (50, 30) <> placeXY origin,
+                  ellipse $ size (50, 30) <> placeXY center
+                ]
         )
       ]
     ),
@@ -164,8 +172,8 @@ info2D =
           unions $
             colorize $
               level
-                [ rect $ size (50, 30) <> place origin,
-                  rect $ size (50, 30) <> place center
+                [ rect $ size (50, 30) <> placeXY origin,
+                  rect $ size (50, 30) <> placeXY center
                 ]
         )
       ]
@@ -178,10 +186,12 @@ info2D =
           unions $ map (to3D . square . size) [20, 40, 60, 80, 100]
         ),
         ( "placements",
-          unions
-            [ to3D $ square $ size 50 <> place origin,
-              to3D $ square $ size 50 <> place center
-            ]
+          unions $
+            colorize $
+              level
+                [ square $ size 50 <> placeXY origin,
+                  square $ size 50 <> placeXY center
+                ]
         )
       ]
     ),
@@ -204,24 +214,52 @@ info3D =
   [ ( "Box",
       [ ( "Default",
           box mempty
+        ),
+        ( "placements",
+          unions $
+            colorize
+              [ box $ size (50, 30, 20) <> placeXY origin,
+                box $ size (50, 30, 20) <> placeXY center
+              ]
         )
       ]
     ),
     ( "Cube",
       [ ( "Default",
           cube mempty
+        ),
+        ( "placements",
+          unions $
+            colorize
+              [ cube $ size 50 <> placeXY origin,
+                cube $ size 50 <> placeXY center
+              ]
         )
       ]
     ),
     ( "Sphere",
       [ ( "Default",
           sphere mempty
+        ),
+        ( "placements",
+          unions $
+            colorize
+              [ sphere $ diameter 50 <> placeXY origin,
+                sphere $ diameter 50 <> placeXY center
+              ]
         )
       ]
     ),
     ( "Ellipsoid",
       [ ( "Default",
           ellipsoid mempty
+        ),
+        ( "placements",
+          unions $
+            colorize
+              [ ellipsoid $ size (50, 30, 20) <> placeXY origin,
+                ellipsoid $ size (50, 30, 20) <> placeXY center
+              ]
         )
       ]
     ),
@@ -234,6 +272,13 @@ info3D =
     ( "Cylinder",
       [ ( "Default",
           cylinder mempty
+        ),
+        ( "placements",
+          unions $
+            colorize
+              [ cylinder $ height 50 <> diameter 20 <> placeXY origin,
+                cylinder $ height 50 <> diameter 20 <> placeXY center
+              ]
         )
       ]
     ),
