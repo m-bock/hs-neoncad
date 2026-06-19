@@ -8,7 +8,7 @@
 
 ### 3D print
 
-<img src="../../assets/box-with-holes.jpg" alt="Box With Holes">
+<img src="../../assets/box-with-holes.jpg" alt="Box With Holes" width="700">
 
 ## Buck Converter Case
 
