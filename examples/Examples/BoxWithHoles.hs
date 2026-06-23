@@ -41,7 +41,7 @@ distributeY = distribute moveY
 
 drawPerforation :: (MonadNeon m) => BoxWithHoles -> m Model3D
 drawPerforation opts =
-  spinXYZ (vec angles) $
+  spinXYZ angles $
     distributeX pitch infinity $
       distributeY pitch infinity $
         cylinder $
@@ -62,14 +62,15 @@ drawBox opts =
     )
     ( moveZ opts.wallThickness $
         box $
-          size
-            ( x - (opts.wallThickness * 2),
-              y - (opts.wallThickness * 2),
-              z
-            )
+          size $
+            vec
+              ( x - (opts.wallThickness * 2),
+                y - (opts.wallThickness * 2),
+                z
+              )
     )
   where
-    (x, y, z) = opts.boxSize
+    V3 x y z = opts.boxSize
 
 drawBoxWithHoles :: (MonadNeon m) => BoxWithHoles -> m Model3D
 drawBoxWithHoles opts =
@@ -81,10 +82,10 @@ example :: (MonadNeon m) => m Model3D
 example =
   drawBoxWithHoles $
     BoxWithHoles
-      { boxSize = (80, 80, 80),
+      { boxSize = vec (80, 80, 80),
         wallThickness = 5,
         holeDiameter = 7,
-        holeAngles = (45, 0, 45),
+        holeAngles = vec (45, 0, 45),
         holePitch = 10,
         infinity = 200,
         holeFacets = 20

@@ -31,7 +31,7 @@ splitSolid ax model =
   (difference model s, intersection model s)
   where
     s :: m Model3D
-    s = axisToFn ax (infinity / 2) $ box $ size (infinity, infinity, infinity)
+    s = axisToFn ax (infinity / 2) $ box $ size (V3 infinity infinity infinity)
 
 example :: (MonadNeon m) => (m Model3D, m Model3D)
 example =
