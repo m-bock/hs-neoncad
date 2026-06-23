@@ -71,7 +71,7 @@ drawBuckConverterCase opts =
               comment "screw holes" $
                 unions $
                   flip map vs \v ->
-                    moveXY v $
+                    moveXY (vec v) $
                       comment "screw hole" $
                         cylinder $
                           diameter (screwSize + gap) <> height opts.bcInfinity,
@@ -89,7 +89,7 @@ drawBuckConverterCase opts =
               [ comment "wall" $
                   difference drawBaseBox drawHalfPipe,
                 comment "pillars" $
-                  unions (map (\v -> moveXY v drawPillar) vs)
+                  unions (map (\v -> moveXY (vec v) drawPillar) vs)
               ]
           )
           [ comment "wire holes" $
@@ -98,7 +98,7 @@ drawBuckConverterCase opts =
                   cylinder $
                     diameter holeDia <> height opts.bcInfinity,
             comment "screw holders" $
-              unions (map (\v -> moveXY v drawScrewHolder) vs)
+              unions (map (\v -> moveXY (vec v) drawScrewHolder) vs)
           ]
 
       drawBaseBox :: m Model3D

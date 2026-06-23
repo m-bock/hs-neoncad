@@ -310,6 +310,9 @@ module NeonCAD
     Model2D,
     Model3D,
 
+    -- * Utilities
+    VecTup (vec, tup),
+
     -- * Advanced
 
     -- ** Custom Monads
@@ -329,6 +332,7 @@ import Data.Functor.Identity (Identity (runIdentity))
 import Data.Maybe (fromMaybe)
 import Data.Monoid (First (..))
 import GHC.Generics
+import qualified Linear as L
 import OpenSCAD
   ( BoolOp2D (..),
     BoolOp3D (..),
@@ -591,43 +595,43 @@ instance (MonadNeon m) => CanComment (m Model3D) where
 -- * 2D
 
 instance (MonadNeon m) => CanScaleXY (m Model2D) where
-  scaleXY (x, y) modelM = do
+  scaleXY xy modelM = do
     model <- modelM
-    pure $ Transform2D (Scale2D (x, y)) [model]
+    pure $ Transform2D (Scale2D $ tup xy) [model]
 
 instance (MonadNeon m) => CanScaleX (m Model2D) where
-  scaleX x modelM = scaleXY (x, 1) modelM
+  scaleX x modelM = scaleXY (L.V2 x 1) modelM
 
 instance (MonadNeon m) => CanScaleY (m Model2D) where
-  scaleY y modelM = scaleXY (1, y) modelM
+  scaleY y modelM = scaleXY (L.V2 1 y) modelM
 
 instance (MonadNeon m) => CanScale (m Model2D) where
-  scale x modelM = scaleXY (x, x) modelM
+  scale x modelM = scaleXY (L.V2 x x) modelM
 
 -- * 3D
 
 instance (MonadNeon m) => CanScaleXYZ (m Model3D) where
   scaleXYZ v modelM = do
     model <- modelM
-    pure $ Transform3D (Scale3D v) [model]
+    pure $ Transform3D (Scale3D (tup v)) [model]
 
 instance (MonadNeon m) => CanScaleXY (m Model3D) where
-  scaleXY (x, y) modelM = scaleXYZ (x, y, 1) modelM
+  scaleXY (L.V2 x y) modelM = scaleXYZ (L.V3 x y 1) modelM
 
 instance (MonadNeon m) => CanScaleXZ (m Model3D) where
-  scaleXZ (x, z) modelM = scaleXYZ (x, 1, z) modelM
+  scaleXZ (L.V2 x z) modelM = scaleXYZ (L.V3 x 1 z) modelM
 
 instance (MonadNeon m) => CanScaleYZ (m Model3D) where
-  scaleYZ (y, z) modelM = scaleXYZ (1, y, z) modelM
+  scaleYZ (L.V2 y z) modelM = scaleXYZ (L.V3 1 y z) modelM
 
 instance (MonadNeon m) => CanScaleX (m Model3D) where
-  scaleX x modelM = scaleXYZ (x, 1, 1) modelM
+  scaleX x modelM = scaleXYZ (L.V3 x 1 1) modelM
 
 instance (MonadNeon m) => CanScaleY (m Model3D) where
-  scaleY y modelM = scaleXYZ (1, y, 1) modelM
+  scaleY y modelM = scaleXYZ (L.V3 1 y 1) modelM
 
 instance (MonadNeon m) => CanScale (m Model3D) where
-  scale x modelM = scaleXYZ (x, x, x) modelM
+  scale x modelM = scaleXYZ (L.V3 x x x) modelM
 
 -------------------------------------------------------------------------------
 -- / Transformations / CanMove
@@ -636,15 +640,15 @@ instance (MonadNeon m) => CanScale (m Model3D) where
 -- * 2D
 
 instance (MonadNeon m) => CanMoveXY (m Model2D) where
-  moveXY (x, y) modelM = do
+  moveXY (L.V2 x y) modelM = do
     model <- modelM
     pure $ Transform2D (Translate2D (x, y, 0)) [model]
 
 instance (MonadNeon m) => CanMoveX (m Model2D) where
-  moveX x modelM = moveXY (x, 0) modelM
+  moveX x modelM = moveXY (L.V2 x 0) modelM
 
 instance (MonadNeon m) => CanMoveY (m Model2D) where
-  moveY y modelM = moveXY (0, y) modelM
+  moveY y modelM = moveXY (L.V2 0 y) modelM
 
 instance (MonadNeon m) => CanMoveZ (m Model2D) where
   moveZ z modelM = do
@@ -656,25 +660,25 @@ instance (MonadNeon m) => CanMoveZ (m Model2D) where
 instance (MonadNeon m) => CanMoveXYZ (m Model3D) where
   moveXYZ v modelM = do
     model <- modelM
-    pure $ Transform3D (Translate3D v) [model]
+    pure $ Transform3D (Translate3D (tup v)) [model]
 
 instance (MonadNeon m) => CanMoveXY (m Model3D) where
-  moveXY (x, y) modelM = moveXYZ (x, y, 0.0) modelM
+  moveXY (L.V2 x y) modelM = moveXYZ (L.V3 x y 0.0) modelM
 
 instance (MonadNeon m) => CanMoveXZ (m Model3D) where
-  moveXZ (x, z) modelM = moveXYZ (x, 0.0, z) modelM
+  moveXZ (L.V2 x z) modelM = moveXYZ (L.V3 x 0.0 z) modelM
 
 instance (MonadNeon m) => CanMoveYZ (m Model3D) where
-  moveYZ (y, z) modelM = moveXYZ (0.0, y, z) modelM
+  moveYZ (L.V2 y z) modelM = moveXYZ (L.V3 0.0 y z) modelM
 
 instance (MonadNeon m) => CanMoveX (m Model3D) where
-  moveX x modelM = moveXYZ (x, 0.0, 0.0) modelM
+  moveX x modelM = moveXYZ (L.V3 x 0.0 0.0) modelM
 
 instance (MonadNeon m) => CanMoveY (m Model3D) where
-  moveY y modelM = moveXYZ (0.0, y, 0.0) modelM
+  moveY y modelM = moveXYZ (L.V3 0.0 y 0.0) modelM
 
 instance (MonadNeon m) => CanMoveZ (m Model3D) where
-  moveZ z modelM = moveXYZ (0.0, 0.0, z) modelM
+  moveZ z modelM = moveXYZ (L.V3 0.0 0.0 z) modelM
 
 -------------------------------------------------------------------------------
 -- / Transformations / CanResize
@@ -683,40 +687,40 @@ instance (MonadNeon m) => CanMoveZ (m Model3D) where
 -- * 2D
 
 instance (MonadNeon m) => CanResizeXY (m Model2D) where
-  resizeXY (x, y) modelM = do
+  resizeXY (L.V2 x y) modelM = do
     model <- modelM
     pure $ Transform2D (Resize2D (x, y) Nothing) [model]
 
 instance (MonadNeon m) => CanResizeX (m Model2D) where
-  resizeX x modelM = resizeXY (x, 1) modelM
+  resizeX x modelM = resizeXY (L.V2 x 1) modelM
 
 instance (MonadNeon m) => CanResizeY (m Model2D) where
-  resizeY y modelM = resizeXY (1, y) modelM
+  resizeY y modelM = resizeXY (L.V2 1 y) modelM
 
 -- * 3D
 
 instance (MonadNeon m) => CanResizeXYZ (m Model3D) where
-  resizeXYZ (x, y, z) modelM = do
+  resizeXYZ (L.V3 x y z) modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (x, y, z) Nothing) [model]
 
 instance (MonadNeon m) => CanResizeXY (m Model3D) where
-  resizeXY (x, y) modelM = resizeXYZ (x, y, 0) modelM
+  resizeXY (L.V2 x y) modelM = resizeXYZ (L.V3 x y 0) modelM
 
 instance (MonadNeon m) => CanResizeXZ (m Model3D) where
-  resizeXZ (x, z) modelM = resizeXYZ (x, 1, z) modelM
+  resizeXZ (L.V2 x z) modelM = resizeXYZ (L.V3 x 1 z) modelM
 
 instance (MonadNeon m) => CanResizeYZ (m Model3D) where
-  resizeYZ (y, z) modelM = resizeXYZ (1, y, z) modelM
+  resizeYZ (L.V2 y z) modelM = resizeXYZ (L.V3 1 y z) modelM
 
 instance (MonadNeon m) => CanResizeX (m Model3D) where
-  resizeX x modelM = resizeXYZ (x, 1, 1) modelM
+  resizeX x modelM = resizeXYZ (L.V3 x 1 1) modelM
 
 instance (MonadNeon m) => CanResizeY (m Model3D) where
-  resizeY y modelM = resizeXYZ (1, y, 1) modelM
+  resizeY y modelM = resizeXYZ (L.V3 1 y 1) modelM
 
 instance (MonadNeon m) => CanResizeZ (m Model3D) where
-  resizeZ z modelM = resizeXYZ (1, 1, z) modelM
+  resizeZ z modelM = resizeXYZ (L.V3 1 1 z) modelM
 
 -------------------------------------------------------------------------------
 -- / Transformations / CanResize Auto
@@ -737,17 +741,17 @@ instance (MonadNeon m) => CanResizeAutoY (m Model2D) where
 -- * 3D
 
 instance (MonadNeon m) => CanResizeAutoXY (m Model3D) where
-  resizeAutoXY (x, y) modelM = do
+  resizeAutoXY (L.V2 x y) modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (x, y, 0) (Just (False, False, True))) [model]
 
 instance (MonadNeon m) => CanResizeAutoXZ (m Model3D) where
-  resizeAutoXZ (x, z) modelM = do
+  resizeAutoXZ (L.V2 x z) modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (x, 0, z) (Just (False, True, False))) [model]
 
 instance (MonadNeon m) => CanResizeAutoYZ (m Model3D) where
-  resizeAutoYZ (y, z) modelM = do
+  resizeAutoYZ (L.V2 y z) modelM = do
     model <- modelM
     pure $ Transform3D (Resize3D (0, y, z) (Just (True, False, False))) [model]
 
@@ -780,27 +784,27 @@ instance (MonadNeon m) => CanSpinZ (m Model2D) where
 -- * 3D
 
 instance (MonadNeon m) => CanSpinXYZ (m Model3D) where
-  spinXYZ (x, y, z) modelM = do
+  spinXYZ (L.V3 x y z) modelM = do
     model <- modelM
     pure $ Transform3D (RotateEuler3D (x, y, z)) [model]
 
 instance (MonadNeon m) => CanSpinXY (m Model3D) where
-  spinXY (x, y) modelM = spinXYZ (x, y, 0) modelM
+  spinXY (L.V2 x y) modelM = spinXYZ (L.V3 x y 0) modelM
 
 instance (MonadNeon m) => CanSpinXZ (m Model3D) where
-  spinXZ (x, z) modelM = spinXYZ (x, 0, z) modelM
+  spinXZ (L.V2 x z) modelM = spinXYZ (L.V3 x 0 z) modelM
 
 instance (MonadNeon m) => CanSpinYZ (m Model3D) where
-  spinYZ (y, z) modelM = spinXYZ (0, y, z) modelM
+  spinYZ (L.V2 y z) modelM = spinXYZ (L.V3 0 y z) modelM
 
 instance (MonadNeon m) => CanSpinX (m Model3D) where
-  spinX x modelM = spinXYZ (x, 0, 0) modelM
+  spinX x modelM = spinXYZ (L.V3 x 0 0) modelM
 
 instance (MonadNeon m) => CanSpinY (m Model3D) where
-  spinY y modelM = spinXYZ (0, y, 0) modelM
+  spinY y modelM = spinXYZ (L.V3 0 y 0) modelM
 
 instance (MonadNeon m) => CanSpinZ (m Model3D) where
-  spinZ z modelM = spinXYZ (0, 0, z) modelM
+  spinZ z modelM = spinXYZ (L.V3 0 0 z) modelM
 
 -------------------------------------------------------------------------------
 -- / Transformations / CanMirror
@@ -819,34 +823,34 @@ instance (MonadNeon m) => CanMirrorY (m Model2D) where
     pure $ Transform2D (Mirror2D (1, 0)) [model]
 
 instance (MonadNeon m) => CanMirrorXY (m Model2D) where
-  mirrorXY (x, y) modelM = do
+  mirrorXY (L.V2 x y) modelM = do
     model <- modelM
     pure $ Transform2D (Mirror2D (x, y)) [model]
 
 -- * 3D
 
 instance (MonadNeon m) => CanMirrorXYZ (m Model3D) where
-  mirrorXYZ (x, y, z) modelM = do
+  mirrorXYZ (L.V3 x y z) modelM = do
     model <- modelM
     pure $ Transform3D (Mirror3D (x, y, z)) [model]
 
 instance (MonadNeon m) => CanMirrorXY (m Model3D) where
-  mirrorXY (x, y) modelM = mirrorXYZ (x, y, 0) modelM
+  mirrorXY (L.V2 x y) modelM = mirrorXYZ (L.V3 x y 0) modelM
 
 instance (MonadNeon m) => CanMirrorXZ (m Model3D) where
-  mirrorXZ (x, z) modelM = mirrorXYZ (x, 0, z) modelM
+  mirrorXZ (L.V2 x z) modelM = mirrorXYZ (L.V3 x 0 z) modelM
 
 instance (MonadNeon m) => CanMirrorYZ (m Model3D) where
-  mirrorYZ (y, z) modelM = mirrorXYZ (0, y, z) modelM
+  mirrorYZ (L.V2 y z) modelM = mirrorXYZ (L.V3 0 y z) modelM
 
 instance (MonadNeon m) => CanMirrorX (m Model3D) where
-  mirrorX modelM = mirrorXYZ (1, 0, 0) modelM
+  mirrorX modelM = mirrorXYZ (L.V3 1 0 0) modelM
 
 instance (MonadNeon m) => CanMirrorY (m Model3D) where
-  mirrorY modelM = mirrorXYZ (0, 1, 0) modelM
+  mirrorY modelM = mirrorXYZ (L.V3 0 1 0) modelM
 
 instance (MonadNeon m) => CanMirrorZ (m Model3D) where
-  mirrorZ z modelM = mirrorXYZ (0, 0, z) modelM
+  mirrorZ z modelM = mirrorXYZ (L.V3 0 0 z) modelM
 
 -------------------------------------------------------------------------------
 -- / Attributes / Color
@@ -1180,7 +1184,7 @@ ellipse (EllipseOpts optsMay) = do
     (PlacementCenter, PlacementCenter)
     (get opts.ellipseOptsPlacementX, get opts.ellipseOptsPlacementY)
     (dx, dy)
-    $ resizeXY (dx, dy)
+    $ resizeXY (L.V2 dx dy)
     $ circle (diameter (max dx dy) <> facets (get opts.ellipseOptsFacets))
 
 -------------------------------------------------------------------------------
@@ -1825,7 +1829,7 @@ ellipsoid (EllipsoidOpts optsMay) = do
     (PlacementCenter, PlacementCenter, PlacementCenter)
     (get opts.ellipsoidOptsPlacementX, get opts.ellipsoidOptsPlacementY, get opts.ellipsoidOptsPlacementZ)
     (dx, dy, dz)
-    $ resizeXYZ (dx, dy, dz)
+    $ resizeXYZ (L.V3 dx dy dz)
     $ pure
     $ Primitive3D
     $ Sphere3D
@@ -2237,17 +2241,18 @@ get = runIdentity
 
 handlePlacement3 :: (MonadNeon m) => V3 Placement -> V3 Placement -> V3 Double -> m Model3D -> m Model3D
 handlePlacement3 (defX, defY, defZ) (pX, pY, pZ) (x, y, z) =
-  moveXYZ
-    ( handlePlacement defX pX x,
-      handlePlacement defY pY y,
-      handlePlacement defZ pZ z
-    )
+  moveXYZ $
+    L.V3
+      (handlePlacement defX pX x)
+      (handlePlacement defY pY y)
+      (handlePlacement defZ pZ z)
 
 handlePlacement2 :: (MonadNeon m) => V2 Placement -> V2 Placement -> V2 Double -> m Model2D -> m Model2D
 handlePlacement2 (defX, defY) (pX, pY) (x, y) =
   moveXY
-    ( handlePlacement defX pX x,
-      handlePlacement defY pY y
+    ( L.V2
+        (handlePlacement defX pX x)
+        (handlePlacement defY pY y)
     )
 
 handlePlacement :: Placement -> Placement -> Double -> Double
@@ -2320,19 +2325,19 @@ class HasFacets a where
 -------------------------------------------------------------------------------
 
 class CanMoveXYZ a where
-  moveXYZ :: V3 Double -> a -> a
+  moveXYZ :: L.V3 Double -> a -> a
 
 class CanScaleXYZ a where
-  scaleXYZ :: V3 Double -> a -> a
+  scaleXYZ :: L.V3 Double -> a -> a
 
 class CanScaleXY a where
-  scaleXY :: V2 Double -> a -> a
+  scaleXY :: L.V2 Double -> a -> a
 
 class CanScaleXZ a where
-  scaleXZ :: V2 Double -> a -> a
+  scaleXZ :: L.V2 Double -> a -> a
 
 class CanScaleYZ a where
-  scaleYZ :: V2 Double -> a -> a
+  scaleYZ :: L.V2 Double -> a -> a
 
 class CanScaleX a where
   scaleX :: Double -> a -> a
@@ -2347,13 +2352,13 @@ class CanScale a where
   scale :: Double -> a -> a
 
 class CanMoveXY a where
-  moveXY :: V2 Double -> a -> a
+  moveXY :: L.V2 Double -> a -> a
 
 class CanMoveXZ a where
-  moveXZ :: V2 Double -> a -> a
+  moveXZ :: L.V2 Double -> a -> a
 
 class CanMoveYZ a where
-  moveYZ :: V2 Double -> a -> a
+  moveYZ :: L.V2 Double -> a -> a
 
 class CanMoveX a where
   moveX :: Double -> a -> a
@@ -2365,16 +2370,16 @@ class CanMoveZ a where
   moveZ :: Double -> a -> a
 
 class CanResizeXYZ a where
-  resizeXYZ :: V3 Double -> a -> a
+  resizeXYZ :: L.V3 Double -> a -> a
 
 class CanResizeXY a where
-  resizeXY :: V2 Double -> a -> a
+  resizeXY :: L.V2 Double -> a -> a
 
 class CanResizeXZ a where
-  resizeXZ :: V2 Double -> a -> a
+  resizeXZ :: L.V2 Double -> a -> a
 
 class CanResizeYZ a where
-  resizeYZ :: V2 Double -> a -> a
+  resizeYZ :: L.V2 Double -> a -> a
 
 class CanResizeX a where
   resizeX :: Double -> a -> a
@@ -2386,13 +2391,13 @@ class CanResizeZ a where
   resizeZ :: Double -> a -> a
 
 class CanResizeAutoXY a where
-  resizeAutoXY :: V2 Double -> a -> a
+  resizeAutoXY :: L.V2 Double -> a -> a
 
 class CanResizeAutoXZ a where
-  resizeAutoXZ :: V2 Double -> a -> a
+  resizeAutoXZ :: L.V2 Double -> a -> a
 
 class CanResizeAutoYZ a where
-  resizeAutoYZ :: V2 Double -> a -> a
+  resizeAutoYZ :: L.V2 Double -> a -> a
 
 class CanResizeAutoX a where
   resizeAutoX :: Double -> a -> a
@@ -2404,16 +2409,16 @@ class CanResizeAutoZ a where
   resizeAutoZ :: Double -> a -> a
 
 class CanSpinXYZ a where
-  spinXYZ :: V3 Double -> a -> a
+  spinXYZ :: L.V3 Double -> a -> a
 
 class CanSpinXY a where
-  spinXY :: V2 Double -> a -> a
+  spinXY :: L.V2 Double -> a -> a
 
 class CanSpinXZ a where
-  spinXZ :: V2 Double -> a -> a
+  spinXZ :: L.V2 Double -> a -> a
 
 class CanSpinYZ a where
-  spinYZ :: V2 Double -> a -> a
+  spinYZ :: L.V2 Double -> a -> a
 
 class CanSpinX a where
   spinX :: Double -> a -> a
@@ -2425,16 +2430,16 @@ class CanSpinZ a where
   spinZ :: Double -> a -> a
 
 class CanMirrorXYZ a where
-  mirrorXYZ :: V3 Double -> a -> a
+  mirrorXYZ :: L.V3 Double -> a -> a
 
 class CanMirrorXY a where
-  mirrorXY :: V2 Double -> a -> a
+  mirrorXY :: L.V2 Double -> a -> a
 
 class CanMirrorXZ a where
-  mirrorXZ :: V2 Double -> a -> a
+  mirrorXZ :: L.V2 Double -> a -> a
 
 class CanMirrorYZ a where
-  mirrorYZ :: V2 Double -> a -> a
+  mirrorYZ :: L.V2 Double -> a -> a
 
 class CanMirrorX a where
   mirrorX :: a -> a
@@ -2482,3 +2487,17 @@ class IsCenter a where
 
 class IsOrigin a where
   origin :: a
+
+-------------------------------------------------------------------------------
+
+class VecTup t a | a -> t where
+  vec :: t -> a
+  tup :: a -> t
+
+instance VecTup (a, a, a) (L.V3 a) where
+  vec (x, y, z) = L.V3 x y z
+  tup (L.V3 x y z) = (x, y, z)
+
+instance VecTup (a, a) (L.V2 a) where
+  vec (x, y) = L.V2 x y
+  tup (L.V2 x y) = (x, y)

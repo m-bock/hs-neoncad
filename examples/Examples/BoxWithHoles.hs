@@ -41,7 +41,7 @@ distributeY = distribute moveY
 
 drawPerforation :: (MonadNeon m) => BoxWithHoles -> m Model3D
 drawPerforation opts =
-  spinXYZ angles $
+  spinXYZ (vec angles) $
     distributeX pitch infinity $
       distributeY pitch infinity $
         cylinder $
