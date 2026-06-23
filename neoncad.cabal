@@ -44,6 +44,7 @@ library
     barbies,
     base ^>=4.17.2.1,
     openscad,
+    linear
 
   hs-source-dirs: src
   default-language: Haskell2010

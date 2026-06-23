@@ -82,7 +82,7 @@ instance Monoid DrawRingOpts where
 instance Semigroup DrawRingOpts where
   (<>) = semigroupDrawRingOpts
 
-instance HasHeight Double DrawRingOpts where
+instance HasHeight DrawRingOpts where
   height v = mempty {drawRingOptsHeight = v}
 
 instance HasInnerDiameter Double DrawRingOpts where

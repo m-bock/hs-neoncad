@@ -42,14 +42,14 @@ distributeY = distribute moveY
 drawPerforation :: (MonadNeon m) => BoxWithHoles -> m Model3D
 drawPerforation opts =
   spinXYZ angles $
-    distributeX pitch inf $
-      distributeY pitch inf $
+    distributeX pitch infinity $
+      distributeY pitch infinity $
         cylinder $
           diameter dia
-            <> height inf
+            <> height infinity
             <> facets (count opts.holeFacets)
   where
-    inf = opts.infinity
+    infinity = opts.infinity
     angles = opts.holeAngles
     pitch = opts.holePitch
     dia = opts.holeDiameter
