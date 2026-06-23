@@ -5,6 +5,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -14,6 +15,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE NoFieldSelectors #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
 {- FOURMOLU_DISABLE -}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
@@ -508,15 +510,6 @@ instance (Monad m) => MonadNeon (NeonT m) where
 -- / Facets
 -------------------------------------------------------------------------------
 
-class HasCount v a | a -> v where
-  count :: Int -> a
-
-class HasMaxSize v a | a -> v where
-  maxSize :: Double -> a
-
-class HasMaxAngle v a | a -> v where
-  maxAngle :: Double -> a
-
 instance HasCount Int Facets where
   count i = mempty {fn = Just i}
 
@@ -530,20 +523,11 @@ instance HasMaxAngle Double Facets where
 -- / Facts / IsLeft
 -------------------------------------------------------------------------------
 
-class IsLeft a where
-  left :: a
-
 instance IsLeft HorizontalAlignment where
   left = HALeft
 
-class IsRight a where
-  right :: a
-
 instance IsRight HorizontalAlignment where
   right = HARight
-
-class IsCenter a where
-  center :: a
 
 instance IsCenter HorizontalAlignment where
   center = HACenter
@@ -553,34 +537,23 @@ instance IsCenter HorizontalAlignment where
 -------------------------------------------------------------------------------
 
 data Placement = PlacementCenter | PlacementOrigin
+  deriving (Eq)
 
-class HasPlacementX a where
-  placeX :: Placement -> a
-
-class HasPlacementY a where
-  placeY :: Placement -> a
-
-class HasPlacementZ a where
-  placeZ :: Placement -> a
-
-placeXY :: (HasPlacementX a, HasPlacementY a, Semigroup a) => Placement -> a
+placeXY :: (HasPlacementX o a, HasPlacementY o a, Semigroup a) => o -> a
 placeXY p = placeX p <> placeY p
 
-placeXZ :: (HasPlacementX a, HasPlacementZ a, Semigroup a) => Placement -> a
+placeXZ :: (HasPlacementX o a, HasPlacementZ o a, Semigroup a) => o -> a
 placeXZ p = placeX p <> placeZ p
 
-placeYZ :: (HasPlacementY a, HasPlacementZ a, Semigroup a) => Placement -> a
+placeYZ :: (HasPlacementY o a, HasPlacementZ o a, Semigroup a) => o -> a
 placeYZ p = placeY p <> placeZ p
 
-placeXYZ :: (HasPlacementX a, HasPlacementY a, HasPlacementZ a, Semigroup a) => Placement -> a
+placeXYZ :: (HasPlacementX o a, HasPlacementY o a, HasPlacementZ o a, Semigroup a) => o -> a
 placeXYZ p = placeX p <> placeY p <> placeZ p
 
 -------------------------------------------------------------------------------
 -- / Facts / IsOrigin
 -------------------------------------------------------------------------------
-
-class IsOrigin a where
-  origin :: a
 
 instance IsOrigin Placement where
   origin = PlacementOrigin
@@ -593,83 +566,20 @@ instance IsCenter Placement where
   center = PlacementCenter
 
 -------------------------------------------------------------------------------
--- / Attributes / HasHeight
--------------------------------------------------------------------------------
-
-class HasHeight a where
-  height :: Double -> a
-
--------------------------------------------------------------------------------
 -- / Attributes / HasDiameter
 -------------------------------------------------------------------------------
 
-class HasDiameter a where
-  diameter :: Double -> a
-
-radius :: (HasDiameter a) => Double -> a
+radius :: (HasDiameter Double a) => Double -> a
 radius r = diameter (r * 2)
 
-class HasDiameterTop a where
-  diameterTop :: Double -> a
-
-class HasDiameterBottom a where
-  diameterBottom :: Double -> a
-
--------------------------------------------------------------------------------
--- / Attributes / HasFacets
 -------------------------------------------------------------------------------
 
-class HasFacets a where
-  facets :: Facets -> a
-
--------------------------------------------------------------------------------
--- / Attributes / HasPoints
--------------------------------------------------------------------------------
-
-class HasPoints v a | a -> v where
-  points :: v -> a
-
--------------------------------------------------------------------------------
--- / Attributes / HasSize
--------------------------------------------------------------------------------
-
-class HasSize v a | a -> v where
-  size :: v -> a
-
--------------------------------------------------------------------------------
--- / Attributes / HasFaces
--------------------------------------------------------------------------------
-
-class HasFaces v a | a -> v where
-  faces :: v -> a
-
--------------------------------------------------------------------------------
--- / Attributes / HasConvexity
--------------------------------------------------------------------------------
-
-class HasConvexity a where
-  convexity :: Int -> a
-
--------------------------------------------------------------------------------
--- / Attributes / HasAngle
--------------------------------------------------------------------------------
-
-class HasAngle a where
-  angle :: Double -> a
-
--------------------------------------------------------------------------------
--- / Attributes / Comment
--------------------------------------------------------------------------------
-
-class CanComment a where
-  comment :: String -> a -> a
-
-instance (MonadNeon m) => CanComment (m Model2D) where
+instance (MonadNeon m) => CanComment String (m Model2D) where
   comment txt modelM = do
     model <- modelM
     pure $ Comment2D txt model
 
-instance (MonadNeon m) => CanComment (m Model3D) where
+instance (MonadNeon m) => CanComment String (m Model3D) where
   comment txt modelM = do
     model <- modelM
     pure $ Comment3D txt model
@@ -677,30 +587,6 @@ instance (MonadNeon m) => CanComment (m Model3D) where
 -------------------------------------------------------------------------------
 -- / Modifiers / CanScale
 -------------------------------------------------------------------------------
-
-class CanScaleXYZ a where
-  scaleXYZ :: V3 Double -> a -> a
-
-class CanScaleXY a where
-  scaleXY :: V2 Double -> a -> a
-
-class CanScaleXZ a where
-  scaleXZ :: V2 Double -> a -> a
-
-class CanScaleYZ a where
-  scaleYZ :: V2 Double -> a -> a
-
-class CanScaleX a where
-  scaleX :: Double -> a -> a
-
-class CanScaleY a where
-  scaleY :: Double -> a -> a
-
-class CanScaleZ a where
-  scaleZ :: Double -> a -> a
-
-class CanScale a where
-  scale :: Double -> a -> a
 
 -- * 2D
 
@@ -747,27 +633,6 @@ instance (MonadNeon m) => CanScale (m Model3D) where
 -- / Transformations / CanMove
 -------------------------------------------------------------------------------
 
-class CanMoveXYZ a where
-  moveXYZ :: V3 Double -> a -> a
-
-class CanMoveXY a where
-  moveXY :: V2 Double -> a -> a
-
-class CanMoveXZ a where
-  moveXZ :: V2 Double -> a -> a
-
-class CanMoveYZ a where
-  moveYZ :: V2 Double -> a -> a
-
-class CanMoveX a where
-  moveX :: Double -> a -> a
-
-class CanMoveY a where
-  moveY :: Double -> a -> a
-
-class CanMoveZ a where
-  moveZ :: Double -> a -> a
-
 -- * 2D
 
 instance (MonadNeon m) => CanMoveXY (m Model2D) where
@@ -788,53 +653,32 @@ instance (MonadNeon m) => CanMoveZ (m Model2D) where
 
 -- * 3D
 
-instance (MonadNeon m) => CanMoveXYZ (m Model3D) where
+instance (MonadNeon m) => CanMoveXYZ (V3 Double) (m Model3D) where
   moveXYZ v modelM = do
     model <- modelM
     pure $ Transform3D (Translate3D v) [model]
 
 instance (MonadNeon m) => CanMoveXY (m Model3D) where
-  moveXY (x, y) modelM = moveXYZ (x, y, 0) modelM
+  moveXY (x, y) modelM = moveXYZ (x, y, 0.0) modelM
 
 instance (MonadNeon m) => CanMoveXZ (m Model3D) where
-  moveXZ (x, z) modelM = moveXYZ (x, 0, z) modelM
+  moveXZ (x, z) modelM = moveXYZ (x, 0.0, z) modelM
 
 instance (MonadNeon m) => CanMoveYZ (m Model3D) where
-  moveYZ (y, z) modelM = moveXYZ (0, y, z) modelM
+  moveYZ (y, z) modelM = moveXYZ (0.0, y, z) modelM
 
 instance (MonadNeon m) => CanMoveX (m Model3D) where
-  moveX x modelM = moveXYZ (x, 0, 0) modelM
+  moveX x modelM = moveXYZ (x, 0.0, 0.0) modelM
 
 instance (MonadNeon m) => CanMoveY (m Model3D) where
-  moveY y modelM = moveXYZ (0, y, 0) modelM
+  moveY y modelM = moveXYZ (0.0, y, 0.0) modelM
 
 instance (MonadNeon m) => CanMoveZ (m Model3D) where
-  moveZ z modelM = moveXYZ (0, 0, z) modelM
+  moveZ z modelM = moveXYZ (0.0, 0.0, z) modelM
 
 -------------------------------------------------------------------------------
 -- / Transformations / CanResize
 -------------------------------------------------------------------------------
-
-class CanResizeXYZ a where
-  resizeXYZ :: V3 Double -> a -> a
-
-class CanResizeXY a where
-  resizeXY :: V2 Double -> a -> a
-
-class CanResizeXZ a where
-  resizeXZ :: V2 Double -> a -> a
-
-class CanResizeYZ a where
-  resizeYZ :: V2 Double -> a -> a
-
-class CanResizeX a where
-  resizeX :: Double -> a -> a
-
-class CanResizeY a where
-  resizeY :: Double -> a -> a
-
-class CanResizeZ a where
-  resizeZ :: Double -> a -> a
 
 -- * 2D
 
@@ -877,24 +721,6 @@ instance (MonadNeon m) => CanResizeZ (m Model3D) where
 -------------------------------------------------------------------------------
 -- / Transformations / CanResize Auto
 -------------------------------------------------------------------------------
-
-class CanResizeAutoXY a where
-  resizeAutoXY :: V2 Double -> a -> a
-
-class CanResizeAutoXZ a where
-  resizeAutoXZ :: V2 Double -> a -> a
-
-class CanResizeAutoYZ a where
-  resizeAutoYZ :: V2 Double -> a -> a
-
-class CanResizeAutoX a where
-  resizeAutoX :: Double -> a -> a
-
-class CanResizeAutoY a where
-  resizeAutoY :: Double -> a -> a
-
-class CanResizeAutoZ a where
-  resizeAutoZ :: Double -> a -> a
 
 -- * 2D
 
@@ -944,27 +770,6 @@ instance (MonadNeon m) => CanResizeAutoZ (m Model3D) where
 -- / Transformations / CanSpin
 -------------------------------------------------------------------------------
 
-class CanSpinXYZ a where
-  spinXYZ :: V3 Double -> a -> a
-
-class CanSpinXY a where
-  spinXY :: V2 Double -> a -> a
-
-class CanSpinXZ a where
-  spinXZ :: V2 Double -> a -> a
-
-class CanSpinYZ a where
-  spinYZ :: V2 Double -> a -> a
-
-class CanSpinX a where
-  spinX :: Double -> a -> a
-
-class CanSpinY a where
-  spinY :: Double -> a -> a
-
-class CanSpinZ a where
-  spinZ :: Double -> a -> a
-
 -- * 2D
 
 instance (MonadNeon m) => CanSpinZ (m Model2D) where
@@ -1000,27 +805,6 @@ instance (MonadNeon m) => CanSpinZ (m Model3D) where
 -------------------------------------------------------------------------------
 -- / Transformations / CanMirror
 -------------------------------------------------------------------------------
-
-class CanMirrorXYZ a where
-  mirrorXYZ :: V3 Double -> a -> a
-
-class CanMirrorXY a where
-  mirrorXY :: V2 Double -> a -> a
-
-class CanMirrorXZ a where
-  mirrorXZ :: V2 Double -> a -> a
-
-class CanMirrorYZ a where
-  mirrorYZ :: V2 Double -> a -> a
-
-class CanMirrorX a where
-  mirrorX :: a -> a
-
-class CanMirrorY a where
-  mirrorY :: a -> a
-
-class CanMirrorZ a where
-  mirrorZ :: Double -> a -> a
 
 -- * 2D
 
@@ -1097,9 +881,6 @@ fallbackColorOpts =
       colorOptsAlpha = pure 1
     }
 
-class CanColoring a where
-  color :: ColorOpts First -> a -> a
-
 rgb :: V3 Double -> ColorOpts First
 rgb rgbValues = mempty {colorOptsRgb = First $ Just rgbValues}
 
@@ -1130,9 +911,6 @@ instance (MonadNeon m) => CanColoring (m Model3D) where
 -- / Transformations / Hull
 -------------------------------------------------------------------------------
 
-class CanHull a where
-  hull :: a -> a
-
 -- * 2D
 
 instance (MonadNeon m) => CanHull (m Model2D) where
@@ -1150,10 +928,6 @@ instance (MonadNeon m) => CanHull (m Model3D) where
 -------------------------------------------------------------------------------
 -- / Boolean Operations / Union
 -------------------------------------------------------------------------------
-
-class CanUnion a where
-  union :: a -> a -> a
-  unions :: [a] -> a
 
 empty :: (CanUnion a) => a
 empty = unions []
@@ -1186,10 +960,6 @@ instance (MonadNeon m) => CanUnion (m Model3D) where
 -- / Boolean Operations / Intersection
 -------------------------------------------------------------------------------
 
-class CanIntersection a where
-  intersection :: a -> a -> a
-  intersections :: [a] -> a
-
 -- * 2D
 
 instance (MonadNeon m) => CanIntersection (m Model2D) where
@@ -1217,10 +987,6 @@ instance (MonadNeon m) => CanIntersection (m Model3D) where
 -------------------------------------------------------------------------------
 -- / Boolean Operations / Difference
 -------------------------------------------------------------------------------
-
-class CanDifference a where
-  difference :: a -> a -> a
-  differences :: a -> [a] -> a
 
 -- * 2D
 
@@ -1251,9 +1017,6 @@ instance (MonadNeon m) => CanDifference (m Model3D) where
 -------------------------------------------------------------------------------
 -- / Transformations / Modifiers
 -------------------------------------------------------------------------------
-
-class CanMod a where
-  mod :: Modifier -> a -> a
 
 disable :: Modifier
 disable = ModDisable
@@ -1321,16 +1084,16 @@ fallbackCircleOpts fc =
       circleOptsFacets = pure fc
     }
 
-instance HasDiameter CircleOpts where
+instance HasDiameter Double CircleOpts where
   diameter v = CircleOpts $ mempty {circleOptsDiameter = First $ Just v}
 
-instance HasFacets CircleOpts where
+instance HasFacets Facets CircleOpts where
   facets v = CircleOpts $ mempty {circleOptsFacets = First $ Just v}
 
-instance HasPlacementX CircleOpts where
+instance HasPlacementX Placement CircleOpts where
   placeX v = CircleOpts $ mempty {circleOptsPlacementX = First $ Just v}
 
-instance HasPlacementY CircleOpts where
+instance HasPlacementY Placement CircleOpts where
   placeY v = CircleOpts $ mempty {circleOptsPlacementY = First $ Just v}
 
 circle :: (MonadNeon m) => CircleOpts -> m Model2D
@@ -1377,13 +1140,13 @@ data EllipseOptsInternal f = EllipseOptsInternal
 instance HasSize (V2 Double) EllipseOpts where
   size v = EllipseOpts $ mempty {ellipseOptsSize = First $ Just v}
 
-instance HasPlacementX EllipseOpts where
+instance HasPlacementX Placement EllipseOpts where
   placeX v = EllipseOpts $ mempty {ellipseOptsPlacementX = First $ Just v}
 
-instance HasPlacementY EllipseOpts where
+instance HasPlacementY Placement EllipseOpts where
   placeY v = EllipseOpts $ mempty {ellipseOptsPlacementY = First $ Just v}
 
-instance HasFacets EllipseOpts where
+instance HasFacets Facets EllipseOpts where
   facets v = EllipseOpts $ mempty {ellipseOptsFacets = First $ Just v}
 
 deriving via
@@ -1458,10 +1221,10 @@ fallbackRectOpts =
       rectOptsPlacementY = pure PlacementCenter
     }
 
-instance HasPlacementX RectOpts where
+instance HasPlacementX Placement RectOpts where
   placeX v = RectOpts $ mempty {rectOptsPlacementX = First $ Just v}
 
-instance HasPlacementY RectOpts where
+instance HasPlacementY Placement RectOpts where
   placeY v = RectOpts $ mempty {rectOptsPlacementY = First $ Just v}
 
 instance HasSize (V2 Double) RectOpts where
@@ -1526,10 +1289,10 @@ fallbackSquareOpts =
 instance HasSize Double SquareOpts where
   size v = SquareOpts $ mempty {squareOptsSize = First $ Just v}
 
-instance HasPlacementX SquareOpts where
+instance HasPlacementX Placement SquareOpts where
   placeX v = SquareOpts $ mempty {squareOptsPlacementX = First $ Just v}
 
-instance HasPlacementY SquareOpts where
+instance HasPlacementY Placement SquareOpts where
   placeY v = SquareOpts $ mempty {squareOptsPlacementY = First $ Just v}
 
 square :: (MonadNeon m) => SquareOpts -> m Model2D
@@ -1819,13 +1582,13 @@ fallbackBoxOpts =
 instance HasSize (V3 Double) BoxOpts where
   size v = BoxOpts $ mempty {boxOptsSize = First $ Just v}
 
-instance HasPlacementX BoxOpts where
+instance HasPlacementX Placement BoxOpts where
   placeX v = BoxOpts $ mempty {boxOptsPlacementX = First $ Just v}
 
-instance HasPlacementY BoxOpts where
+instance HasPlacementY Placement BoxOpts where
   placeY v = BoxOpts $ mempty {boxOptsPlacementY = First $ Just v}
 
-instance HasPlacementZ BoxOpts where
+instance HasPlacementZ Placement BoxOpts where
   placeZ v = BoxOpts $ mempty {boxOptsPlacementZ = First $ Just v}
 
 box :: (MonadNeon m) => BoxOpts -> m Model3D
@@ -1889,13 +1652,13 @@ fallbackCubeOpts =
 instance HasSize Double CubeOpts where
   size v = CubeOpts $ mempty {cubeOptsSize = First $ Just v}
 
-instance HasPlacementX CubeOpts where
+instance HasPlacementX Placement CubeOpts where
   placeX v = CubeOpts $ mempty {cubeOptsPlacementX = First $ Just v}
 
-instance HasPlacementY CubeOpts where
+instance HasPlacementY Placement CubeOpts where
   placeY v = CubeOpts $ mempty {cubeOptsPlacementY = First $ Just v}
 
-instance HasPlacementZ CubeOpts where
+instance HasPlacementZ Placement CubeOpts where
   placeZ v = CubeOpts $ mempty {cubeOptsPlacementZ = First $ Just v}
 
 cube :: (MonadNeon m) => CubeOpts -> m Model3D
@@ -1958,19 +1721,19 @@ fallbackSphereOpts fc =
       sphereOptsFacets = pure fc
     }
 
-instance HasDiameter SphereOpts where
+instance HasDiameter Double SphereOpts where
   diameter v = SphereOpts $ mempty {sphereOptsDiameter = First $ Just v}
 
-instance HasPlacementX SphereOpts where
+instance HasPlacementX Placement SphereOpts where
   placeX v = SphereOpts $ mempty {sphereOptsPlacementX = First $ Just v}
 
-instance HasPlacementY SphereOpts where
+instance HasPlacementY Placement SphereOpts where
   placeY v = SphereOpts $ mempty {sphereOptsPlacementY = First $ Just v}
 
-instance HasPlacementZ SphereOpts where
+instance HasPlacementZ Placement SphereOpts where
   placeZ v = SphereOpts $ mempty {sphereOptsPlacementZ = First $ Just v}
 
-instance HasFacets SphereOpts where
+instance HasFacets Facets SphereOpts where
   facets v = SphereOpts $ mempty {sphereOptsFacets = First $ Just v}
 
 sphere :: (MonadNeon m) => SphereOpts -> m Model3D
@@ -2037,16 +1800,16 @@ fallbackEllipsoidOpts fc =
 instance HasSize (V3 Double) EllipsoidOpts where
   size v = EllipsoidOpts $ mempty {ellipsoidOptsSize = First $ Just v}
 
-instance HasPlacementX EllipsoidOpts where
+instance HasPlacementX Placement EllipsoidOpts where
   placeX v = EllipsoidOpts $ mempty {ellipsoidOptsPlacementX = First $ Just v}
 
-instance HasPlacementY EllipsoidOpts where
+instance HasPlacementY Placement EllipsoidOpts where
   placeY v = EllipsoidOpts $ mempty {ellipsoidOptsPlacementY = First $ Just v}
 
-instance HasPlacementZ EllipsoidOpts where
+instance HasPlacementZ Placement EllipsoidOpts where
   placeZ v = EllipsoidOpts $ mempty {ellipsoidOptsPlacementZ = First $ Just v}
 
-instance HasFacets EllipsoidOpts where
+instance HasFacets Facets EllipsoidOpts where
   facets v = EllipsoidOpts $ mempty {ellipsoidOptsFacets = First $ Just v}
 
 ellipsoid :: (MonadNeon m) => EllipsoidOpts -> m Model3D
@@ -2102,19 +1865,19 @@ deriving via
   instance
     Monoid (FrustumOptsInternal First)
 
-instance HasHeight FrustumOpts where
+instance HasHeight Double FrustumOpts where
   height v = FrustumOpts $ mempty {frustumOptsHeight = First $ Just v}
 
-instance HasDiameterTop FrustumOpts where
+instance HasDiameterTop Double FrustumOpts where
   diameterTop d = FrustumOpts $ mempty {frustumOptsDiameterTop = First $ Just d}
 
-instance HasDiameterBottom FrustumOpts where
+instance HasDiameterBottom Double FrustumOpts where
   diameterBottom d = FrustumOpts $ mempty {frustumOptsDiameterBottom = First $ Just d}
 
-instance HasPlacementZ FrustumOpts where
+instance HasPlacementZ Placement FrustumOpts where
   placeZ v = FrustumOpts $ mempty {frustumOptsPlacementZ = First $ Just v}
 
-instance HasFacets FrustumOpts where
+instance HasFacets Facets FrustumOpts where
   facets v = FrustumOpts $ mempty {frustumOptsFacets = First $ Just v}
 
 defaultFrustumRadiusTop :: Double
@@ -2198,22 +1961,22 @@ deriving via
   instance
     Monoid (CylinderOptsInternal First)
 
-instance HasHeight CylinderOpts where
+instance HasHeight Double CylinderOpts where
   height v = CylinderOpts $ mempty {cylinderOptsHeight = First $ Just v}
 
-instance HasDiameter CylinderOpts where
+instance HasDiameter Double CylinderOpts where
   diameter v = CylinderOpts $ mempty {cylinderOptsDiameter = First $ Just v}
 
-instance HasPlacementX CylinderOpts where
+instance HasPlacementX Placement CylinderOpts where
   placeX v = CylinderOpts $ mempty {cylinderOptsPlacementX = First $ Just v}
 
-instance HasPlacementY CylinderOpts where
+instance HasPlacementY Placement CylinderOpts where
   placeY v = CylinderOpts $ mempty {cylinderOptsPlacementY = First $ Just v}
 
-instance HasPlacementZ CylinderOpts where
+instance HasPlacementZ Placement CylinderOpts where
   placeZ v = CylinderOpts $ mempty {cylinderOptsPlacementZ = First $ Just v}
 
-instance HasFacets CylinderOpts where
+instance HasFacets Facets CylinderOpts where
   facets v = CylinderOpts $ mempty {cylinderOptsFacets = First $ Just v}
 
 fallbackCylinderOpts :: Facets -> CylinderOptsInternal Identity
@@ -2287,7 +2050,7 @@ instance HasPoints [V3 Double] PolyhedronOpts where
 instance HasFaces [V3 Int] PolyhedronOpts where
   faces v = PolyhedronOpts $ mempty {polyhedronOptsFaces = First $ Just v}
 
-instance HasConvexity PolyhedronOpts where
+instance HasConvexity Int PolyhedronOpts where
   convexity v = PolyhedronOpts $ mempty {polyhedronOptsConvexity = First $ Just v}
 
 fallbackPolyhedronOpts :: PolyhedronOptsInternal Identity
@@ -2345,7 +2108,7 @@ deriving via
 
 data AutoOrSet a = Auto | Set a
 
-instance HasHeight ExtrudeLinearOpts where
+instance HasHeight Double ExtrudeLinearOpts where
   height v = ExtrudeLinearOpts $ mempty {extrudeLinearOptsHeight = First $ Just v}
 
 instance IsCenter ExtrudeLinearOpts where
@@ -2429,7 +2192,7 @@ fallbackExtrudeRotationalOpts fc =
       extrudeRotationalOptsFacets = pure fc
     }
 
-instance HasAngle (ExtrudeRotationalOpts First) where
+instance HasAngle Double (ExtrudeRotationalOpts First) where
   angle a = mempty {extrudeRotationalOptsAngle = First $ Just a}
 
 extrudeRotational :: (MonadNeon m) => ExtrudeRotationalOpts First -> m Model2D -> m Model3D
@@ -2503,3 +2266,235 @@ render2D = O.render2D . runNeonM defaultFacets
 
 render3D :: NeonM Model3D -> String
 render3D = O.render3D . runNeonM defaultFacets
+
+-------------------------------------------------------------------------------
+
+class HasHeight o a where
+  -- \| a -> o
+  height :: o -> a
+
+class HasDiameter o a where
+  -- \| a -> o
+  diameter :: o -> a
+
+class HasPoints o a where
+  -- \| a -> o
+  points :: o -> a
+
+class HasSize o a where
+  -- \| a -> o
+  size :: o -> a
+
+class HasFaces o a where
+  -- \| a -> o
+  faces :: o -> a
+
+class HasCount o a where
+  -- \| a -> o
+  count :: o -> a
+
+class HasMaxSize o a where
+  -- \| a -> o
+  maxSize :: o -> a
+
+class HasMaxAngle o a where
+  -- \| a -> o
+  maxAngle :: o -> a
+
+class HasConvexity o a where
+  -- \| a -> o
+  convexity :: o -> a
+
+class HasAngle o a where
+  -- \| a -> o
+  angle :: o -> a
+
+class HasPlacementX o a | a -> o where
+  placeX :: o -> a
+
+class HasPlacementY o a | a -> o where
+  -- \| a -> o
+  placeY :: o -> a
+
+class HasPlacementZ o a | a -> o where
+  -- \| a -> o
+  placeZ :: o -> a
+
+class HasDiameterTop o a where
+  -- \| a -> o
+  diameterTop :: o -> a
+
+class HasDiameterBottom o a where
+  -- \| a -> o
+  diameterBottom :: o -> a
+
+---
+
+class HasFacets o a | a -> o where
+  facets :: o -> a
+
+-------------------------------------------------------------------------------
+
+class CanMoveXYZ o a where
+  moveXYZ :: o -> a -> a
+
+class CanScaleXYZ a where
+  scaleXYZ :: V3 Double -> a -> a
+
+class CanScaleXY a where
+  scaleXY :: V2 Double -> a -> a
+
+class CanScaleXZ a where
+  scaleXZ :: V2 Double -> a -> a
+
+class CanScaleYZ a where
+  scaleYZ :: V2 Double -> a -> a
+
+class CanScaleX a where
+  scaleX :: Double -> a -> a
+
+class CanScaleY a where
+  scaleY :: Double -> a -> a
+
+class CanScaleZ a where
+  scaleZ :: Double -> a -> a
+
+class CanScale a where
+  scale :: Double -> a -> a
+
+class CanMoveXY a where
+  moveXY :: V2 Double -> a -> a
+
+class CanMoveXZ a where
+  moveXZ :: V2 Double -> a -> a
+
+class CanMoveYZ a where
+  moveYZ :: V2 Double -> a -> a
+
+class CanMoveX a where
+  moveX :: Double -> a -> a
+
+class CanMoveY a where
+  moveY :: Double -> a -> a
+
+class CanMoveZ a where
+  moveZ :: Double -> a -> a
+
+class CanResizeXYZ a where
+  resizeXYZ :: V3 Double -> a -> a
+
+class CanResizeXY a where
+  resizeXY :: V2 Double -> a -> a
+
+class CanResizeXZ a where
+  resizeXZ :: V2 Double -> a -> a
+
+class CanResizeYZ a where
+  resizeYZ :: V2 Double -> a -> a
+
+class CanResizeX a where
+  resizeX :: Double -> a -> a
+
+class CanResizeY a where
+  resizeY :: Double -> a -> a
+
+class CanResizeZ a where
+  resizeZ :: Double -> a -> a
+
+class CanResizeAutoXY a where
+  resizeAutoXY :: V2 Double -> a -> a
+
+class CanResizeAutoXZ a where
+  resizeAutoXZ :: V2 Double -> a -> a
+
+class CanResizeAutoYZ a where
+  resizeAutoYZ :: V2 Double -> a -> a
+
+class CanResizeAutoX a where
+  resizeAutoX :: Double -> a -> a
+
+class CanResizeAutoY a where
+  resizeAutoY :: Double -> a -> a
+
+class CanResizeAutoZ a where
+  resizeAutoZ :: Double -> a -> a
+
+class CanSpinXYZ a where
+  spinXYZ :: V3 Double -> a -> a
+
+class CanSpinXY a where
+  spinXY :: V2 Double -> a -> a
+
+class CanSpinXZ a where
+  spinXZ :: V2 Double -> a -> a
+
+class CanSpinYZ a where
+  spinYZ :: V2 Double -> a -> a
+
+class CanSpinX a where
+  spinX :: Double -> a -> a
+
+class CanSpinY a where
+  spinY :: Double -> a -> a
+
+class CanSpinZ a where
+  spinZ :: Double -> a -> a
+
+class CanMirrorXYZ a where
+  mirrorXYZ :: V3 Double -> a -> a
+
+class CanMirrorXY a where
+  mirrorXY :: V2 Double -> a -> a
+
+class CanMirrorXZ a where
+  mirrorXZ :: V2 Double -> a -> a
+
+class CanMirrorYZ a where
+  mirrorYZ :: V2 Double -> a -> a
+
+class CanMirrorX a where
+  mirrorX :: a -> a
+
+class CanMirrorY a where
+  mirrorY :: a -> a
+
+class CanMirrorZ a where
+  mirrorZ :: Double -> a -> a
+
+class CanColoring a where
+  color :: ColorOpts First -> a -> a
+
+class CanHull a where
+  hull :: a -> a
+
+class CanUnion a where
+  union :: a -> a -> a
+  unions :: [a] -> a
+
+class CanIntersection a where
+  intersection :: a -> a -> a
+  intersections :: [a] -> a
+
+class CanDifference a where
+  difference :: a -> a -> a
+  differences :: a -> [a] -> a
+
+class CanMod a where
+  mod :: Modifier -> a -> a
+
+class CanComment o a | a -> o where
+  comment :: o -> a -> a
+
+-------------------------------------------------------------------------------
+
+class IsLeft a where
+  left :: a
+
+class IsRight a where
+  right :: a
+
+class IsCenter a where
+  center :: a
+
+class IsOrigin a where
+  origin :: a

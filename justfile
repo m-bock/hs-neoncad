@@ -6,10 +6,21 @@ EXAMPLE_IMG_SIZE := "512"
 
 _render-scad dir size:
     for img in {{dir}}/*.scad; do \
+        png="${img%.scad}.png"; \
+        stl="${img%.scad}.stl"; \
+        if git ls-files --error-unmatch "$img" >/dev/null 2>&1 \
+            && git diff --quiet HEAD -- "$img" \
+            && [ -f "$png" ] \
+            && [ -f "$stl" ]; then \
+            echo "Skipping $img (unchanged)"; \
+            continue; \
+        fi; \
         echo "Generating image for $img"; \
         openscad --imgsize=4000,4000 -o tmp.png "$img"; \
-        convert tmp.png -resize {{size}}x{{size}} "${img%.scad}.png"; \
+        convert tmp.png -resize {{size}}x{{size}} "$png"; \
         rm tmp.png; \
+        echo "Generating STL for $img"; \
+        openscad -o "$stl" "$img"; \
     done
 
 clean:
