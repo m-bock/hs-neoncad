@@ -5,10 +5,13 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 {-# HLINT ignore "Move brackets to avoid $" #-}
+{-# HLINT ignore "Avoid lambda using `infix`" #-}
 
 module Examples.SplitSolid where
 
 import Data.Bifunctor (Bifunctor (..))
+import Data.Maybe (mapMaybe)
+import Data.Monoid (First (..))
 import NeonCAD
 import NeonCAD.ToolBox
 import System.Environment (getEnv)
@@ -33,34 +36,64 @@ splitSolid ax model =
     s :: m Model3D
     s = axisToFn ax (infinity / 2) $ box $ size (V3 infinity infinity infinity)
 
-example :: (MonadNeon m) => (m Model3D, m Model3D)
-example =
-  bimap after after $
-    splitSolid Y $
-      before $
-        unions
-          [ mod transparent $
-              comment "tube" $
-                difference
-                  ( cylinder $
-                      diameter dia <> height h
-                  )
-                  ( cylinder $
-                      diameter (dia - wall) <> height (h + clear)
-                  ),
-            comment "rings" $
-              distribute (axis Z <> length (h - 3)) $
-                comment "ring" $
-                  drawRing $
-                    height 3.0 <> outerDiameter dia <> innerDiameter 3.0
-          ]
+splitSolid' :: forall m. (MonadNeon m) => m Model3D -> m Model3D -> (m Model3D, m Model3D)
+splitSolid' splitModelM modelM =
+  (difference modelM splitModelM, intersection modelM splitModelM)
+
+j :: (MonadNeon m) => Axis -> m Model3D
+j ax = axisToFn ax (infinity / 2) $ box $ size (V3 infinity infinity infinity)
+
+drawThing :: (MonadNeon m) => m Model3D
+drawThing =
+  unions
+    [ mod transparent $
+        comment "tube" $
+          difference
+            ( cylinder $
+                diameter dia <> height h
+            )
+            ( cylinder $
+                diameter (dia - wall) <> height (h + clear)
+            ),
+      comment "rings" $
+        distribute (axis Z <> length (h - 3)) $
+          replicate 10 $
+            comment "ring" $
+              drawRing $
+                height 3.0 <> outerDiameter dia <> innerDiameter 3.0
+    ]
   where
     dia = 60
     wall = 1.5
     h = 200
+
+type WithFn a = (a -> a) -> a -> a
+
+splitSolidWith :: (MonadNeon m) => WithFn (m Model3D) -> m Model3D -> m Model3D -> (m Model3D, m Model3D)
+splitSolidWith withFn splitModel modelM =
+  ( withFn (intersection splitModel) modelM,
+    withFn (\m -> difference m splitModel) modelM
+  )
+
+---
+
+splitSolidWith' :: (MonadNeon m) => WithFn (m Model3D) -> m Model3D -> m Model3D -> (m Model3D, m Model3D)
+splitSolidWith' withFn splitModel modelM =
+  ( withFn (intersection splitModel) modelM,
+    withFn (\m -> difference m splitModel) modelM
+  )
+
+---
+
+example :: (MonadNeon m) => [m Model3D]
+example = foldl (\acc _ -> acc) [] []
+  where
+    -- splitSolidWith (withMoveXYZ (V3 0 10 0)) (j Y) (cube mempty)
+
     degrees = 30
-    before = spinX degrees
-    after = spinX (-degrees)
+
+-- before = spinX degrees
+-- after = spinX (-degrees)
 
 ---
 
@@ -131,25 +164,29 @@ semigroupDrawRingOpts a b =
         firstUnlessDefault (\x -> x.drawRingOptsHeight) a b
     }
 
+evenOdds :: [a] -> ([a], [a])
+evenOdds xs =
+  ( mapMaybe (\(x, i) -> if even i then Just x else Nothing) (zip xs [0 ..]),
+    mapMaybe (\(x, i) -> if odd i then Just x else Nothing) (zip xs [0 ..])
+  )
+
 main :: IO ()
 main = do
   docImgsPath <- getEnv "EXAMPLES_DIR"
 
-  let (m1, m2) = example
-
-      m = unions [m1, m2]
+  let (m1, m2) = evenOdds example
 
   writeFile
     (docImgsPath ++ "/split-solid.scad")
-    (render3D m)
+    (render3D $ unions example)
 
   writeFile
     (docImgsPath ++ "/split-solid-1.scad")
-    (render3D m1)
+    (render3D $ unions m1)
 
   writeFile
     (docImgsPath ++ "/split-solid-2.scad")
-    (render3D m2)
+    (render3D $ unions m2)
 
 ---
 
@@ -158,5 +195,3 @@ firstUnlessDefault f a b =
   if f a == f mempty
     then f b
     else f a
-
----

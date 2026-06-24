@@ -221,6 +221,8 @@ module NeonCAD
 
     -- ** Move
     CanMoveXYZ (moveXYZ),
+    moveBackXYZ,
+    withMoveXYZ,
     CanMoveXY (moveXY),
     CanMoveXZ (moveXZ),
     CanMoveYZ (moveYZ),
@@ -2327,6 +2329,12 @@ class HasFacets a where
 
 class CanMoveXYZ a where
   moveXYZ :: V3 Double -> a -> a
+
+moveBackXYZ :: (CanMoveXYZ a) => V3 Double -> a -> a
+moveBackXYZ v model = moveXYZ (fmap negate v) model
+
+withMoveXYZ :: (CanMoveXYZ a) => V3 Double -> (a -> a) -> a -> a
+withMoveXYZ v f = moveBackXYZ v . f . moveXYZ v
 
 class CanScaleXYZ a where
   scaleXYZ :: V3 Double -> a -> a

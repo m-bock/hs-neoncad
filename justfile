@@ -3,25 +3,17 @@ DOCS_DIR := "docs"
 EXAMPLES_DIR := "examples-out"
 DOC_IMG_SIZE := "100"
 EXAMPLE_IMG_SIZE := "512"
+SKIP_PNG := env_var_or_default("SKIP_PNG", "true")
+SKIP_STL := env_var_or_default("SKIP_STL", "true")
+NO_SKIP := env_var_or_default("NO_SKIP", "false")
+VIEWPORTS_FILE := env_var_or_default("VIEWPORTS_FILE", "examples/viewports.json")
+
+dev:
+    find examples src test -name '*.hs' | SKIP_PNG=true SKIP_STL=true entr just gen-examples
 
 _render-scad dir size:
-    for img in {{dir}}/*.scad; do \
-        png="${img%.scad}.png"; \
-        stl="${img%.scad}.stl"; \
-        if git ls-files --error-unmatch "$img" >/dev/null 2>&1 \
-            && git diff --quiet HEAD -- "$img" \
-            && [ -f "$png" ] \
-            && [ -f "$stl" ]; then \
-            echo "Skipping $img (unchanged)"; \
-            continue; \
-        fi; \
-        echo "Generating image for $img"; \
-        openscad --imgsize=4000,4000 -o tmp.png "$img"; \
-        convert tmp.png -resize {{size}}x{{size}} "$png"; \
-        rm tmp.png; \
-        echo "Generating STL for $img"; \
-        openscad -o "$stl" "$img"; \
-    done
+    SKIP_PNG={{SKIP_PNG}} SKIP_STL={{SKIP_STL}} NO_SKIP={{NO_SKIP}} VIEWPORTS_FILE={{VIEWPORTS_FILE}} \
+        python3 scripts/render-scad.py {{dir}} {{size}}
 
 clean:
     rm -rf {{DOC_IMGS_DIR}}
@@ -31,7 +23,7 @@ clean:
 gen-doc-imgs:
     mkdir -p {{DOC_IMGS_DIR}}
     DOC_IMGS_DIR={{DOC_IMGS_DIR}} cabal test
-    just _render-scad {{DOC_IMGS_DIR}} {{DOC_IMG_SIZE}}
+    SKIP_PNG={{SKIP_PNG}} SKIP_STL={{SKIP_STL}} NO_SKIP={{NO_SKIP}} just _render-scad {{DOC_IMGS_DIR}} {{DOC_IMG_SIZE}}
 
 gen-docs:
     cabal haddock --haddock-output-dir={{DOCS_DIR}}
@@ -42,4 +34,7 @@ push-docs:
 gen-examples:
     mkdir -p {{EXAMPLES_DIR}}
     EXAMPLES_DIR={{EXAMPLES_DIR}} cabal run neoncad-examples
-    just _render-scad {{EXAMPLES_DIR}} {{EXAMPLE_IMG_SIZE}}
+    SKIP_PNG={{SKIP_PNG}} SKIP_STL={{SKIP_STL}} NO_SKIP={{NO_SKIP}} just _render-scad {{EXAMPLES_DIR}} {{EXAMPLE_IMG_SIZE}}
+
+watch-examples:
+    find examples src test -name '*.hs' | SKIP_PNG={{SKIP_PNG}} SKIP_STL={{SKIP_STL}} entr just gen-examples

@@ -42,53 +42,53 @@ drawExample (name, modelM) =
                             square $
                               size 200,
                     comment "Label" $
-                      moveXY (-100 + 10, -100 + 10) $
+                      moveXY (vec (-100 + 10, -100 + 10)) $
                         color (rgb red) $
                           extrudeLinear (height 1) $
                             text name mempty,
                     comment "Axis" $
                       color (rgb red) $
                         unions
-                          [ comment "X" $ box $ size (1, 200, 1),
-                            comment "Y" $ box $ size (200, 1, 1),
-                            comment "Z" $ box $ size (1, 1, 200)
+                          [ comment "X" $ box $ size $ vec (1, 200, 1),
+                            comment "Y" $ box $ size $ vec (200, 1, 1),
+                            comment "Z" $ box $ size $ vec (1, 1, 200)
                           ]
                   ],
               comment "Model" $ modelM
             ]
       ]
 
-blue = (0.298, 0.471, 0.659) :: V3 Double
+blue = vec (0.298, 0.471, 0.659) :: V3 Double
 
-orange = (0.961, 0.522, 0.094) :: V3 Double
+orange = vec (0.961, 0.522, 0.094) :: V3 Double
 
-green = (0.329, 0.635, 0.294) :: V3 Double
+green = vec (0.329, 0.635, 0.294) :: V3 Double
 
-red = (0.894, 0.341, 0.337) :: V3 Double
+red = vec (0.894, 0.341, 0.337) :: V3 Double
 
-purple = (0.698, 0.475, 0.635) :: V3 Double
+purple = vec (0.698, 0.475, 0.635) :: V3 Double
 
-teal = (0.447, 0.718, 0.698) :: V3 Double
+teal = vec (0.447, 0.718, 0.698) :: V3 Double
 
-gray = (0.498, 0.498, 0.498) :: V3 Double
+gray = vec (0.498, 0.498, 0.498) :: V3 Double
 
-brown = (0.616, 0.459, 0.353) :: V3 Double
+brown = vec (0.616, 0.459, 0.353) :: V3 Double
 
-olive = (0.580, 0.584, 0.192) :: V3 Double
+olive = vec (0.580, 0.584, 0.192) :: V3 Double
 
-pink = (0.906, 0.541, 0.765) :: V3 Double
+pink = vec (0.906, 0.541, 0.765) :: V3 Double
 
-cyan = (0.337, 0.706, 0.914) :: V3 Double
+cyan = vec (0.337, 0.706, 0.914) :: V3 Double
 
-gold = (0.855, 0.647, 0.125) :: V3 Double
+gold = vec (0.855, 0.647, 0.125) :: V3 Double
 
-lime = (0.565, 0.753, 0.263) :: V3 Double
+lime = vec (0.565, 0.753, 0.263) :: V3 Double
 
-lavender = (0.729, 0.624, 0.859) :: V3 Double
+lavender = vec (0.729, 0.624, 0.859) :: V3 Double
 
-coral = (0.929, 0.490, 0.192) :: V3 Double
+coral = vec (0.929, 0.490, 0.192) :: V3 Double
 
-white = (1, 1, 1) :: V3 Double
+white = vec (1, 1, 1) :: V3 Double
 
 colors =
   [ blue,
@@ -155,8 +155,8 @@ info2D =
           unions $
             colorize $
               level
-                [ ellipse $ size (50, 30) <> placeXY origin,
-                  ellipse $ size (50, 30) <> placeXY center
+                [ ellipse $ size (V2 50 30) <> placeXY origin,
+                  ellipse $ size (V2 50 30) <> placeXY center
                 ]
         )
       ]
@@ -166,14 +166,14 @@ info2D =
           to3D $ rect mempty
         ),
         ( "Size, (50, 30)",
-          to3D $ rect $ size (50, 30)
+          to3D $ rect $ size (V2 50 30)
         ),
         ( "placements",
           unions $
             colorize $
               level
-                [ rect $ size (50, 30) <> placeXY origin,
-                  rect $ size (50, 30) <> placeXY center
+                [ rect $ size (V2 50 30) <> placeXY origin,
+                  rect $ size (V2 50 30) <> placeXY center
                 ]
         )
       ]
@@ -218,8 +218,8 @@ info3D =
         ( "placements",
           unions $
             colorize
-              [ box $ size (50, 30, 20) <> placeXY origin,
-                box $ size (50, 30, 20) <> placeXY center
+              [ box $ size (V3 50 30 20) <> placeXY origin,
+                box $ size (V3 50 30 20) <> placeXY center
               ]
         )
       ]
@@ -257,8 +257,8 @@ info3D =
         ( "placements",
           unions $
             colorize
-              [ ellipsoid $ size (50, 30, 20) <> placeXY origin,
-                ellipsoid $ size (50, 30, 20) <> placeXY center
+              [ ellipsoid $ size (V3 50 30 20) <> placeXY origin,
+                ellipsoid $ size (V3 50 30 20) <> placeXY center
               ]
         )
       ]
