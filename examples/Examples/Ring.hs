@@ -1,6 +1,6 @@
 module Examples.Ring where
 
-import Examples.Util.Generic (FirstUnlessDefault (..))
+import Examples.Util.Generic (FirstUnlessDefault (..), SemigroupPlus (..))
 import GHC.Generics (Generic)
 import NeonCAD
 import NeonCAD.ToolBox
@@ -20,7 +20,7 @@ data DrawRingOpts = DrawRingOpts
     drawRingOptsHeight :: Double
   }
   deriving (Eq, Generic)
-  deriving (Semigroup) via (FirstUnlessDefault DrawRingOpts)
+  deriving (Semigroup) via (SemigroupPlus DrawRingOpts)
 
 instance Monoid DrawRingOpts where
   mempty =
