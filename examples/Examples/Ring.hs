@@ -6,7 +6,13 @@ import NeonCAD
 import NeonCAD.ToolBox
 import System.Environment (getEnv)
 
----
+class HasInnerDiameter a where
+  innerDiameter :: Double -> a
+
+class HasOuterDiameter a where
+  outerDiameter :: Double -> a
+
+-------------------------------------------------------------------------------
 
 data DrawRingOpts = DrawRingOpts
   { drawRingOptsInnerDiameter :: Double,
@@ -50,13 +56,7 @@ drawRing opts =
     diaOuter = opts.drawRingOptsOuterDiameter
     h = opts.drawRingOptsHeight
 
----
-
-class HasInnerDiameter a where
-  innerDiameter :: Double -> a
-
-class HasOuterDiameter a where
-  outerDiameter :: Double -> a
+-------------------------------------------------------------------------------
 
 example :: (MonadNeon m) => m Model3D
 example =
