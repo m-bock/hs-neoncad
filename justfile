@@ -3,8 +3,8 @@ DOCS_DIR := "docs"
 EXAMPLES_DIR := "examples-out"
 DOC_IMG_SIZE := "100"
 EXAMPLE_IMG_SIZE := "512"
-SKIP_PNG := env_var_or_default("SKIP_PNG", "true")
-SKIP_STL := env_var_or_default("SKIP_STL", "true")
+SKIP_PNG := env_var_or_default("SKIP_PNG", "false")
+SKIP_STL := env_var_or_default("SKIP_STL", "false")
 NO_SKIP := env_var_or_default("NO_SKIP", "false")
 VIEWPORTS_FILE := env_var_or_default("VIEWPORTS_FILE", "examples/viewports.json")
 
@@ -37,4 +37,4 @@ gen-examples:
     SKIP_PNG={{SKIP_PNG}} SKIP_STL={{SKIP_STL}} NO_SKIP={{NO_SKIP}} just _render-scad {{EXAMPLES_DIR}} {{EXAMPLE_IMG_SIZE}}
 
 watch-examples:
-    find examples src test -name '*.hs' | SKIP_PNG={{SKIP_PNG}} SKIP_STL={{SKIP_STL}} entr just gen-examples
+    find examples src test -name '*.hs' | SKIP_PNG=true SKIP_STL=true entr just gen-examples

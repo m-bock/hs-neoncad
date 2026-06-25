@@ -71,8 +71,10 @@ executable neoncad-examples
     Examples.BoxWithHoles
     Examples.BuckConverterCase
     Examples.BuiltinShapes2D
+    Examples.Ring
     Examples.SplitSolid
     Examples.Util.Colors
+    Examples.Util.Generic
 
   hs-source-dirs: examples
   build-depends:

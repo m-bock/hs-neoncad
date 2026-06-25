@@ -8,6 +8,8 @@ module NeonCAD.ToolBox
     HasLength (length),
     HasPitch (pitch),
     HasPlacement (place),
+    intervals,
+    eps,
   )
 where
 
@@ -80,6 +82,20 @@ class HasPlacement a where
 
 ---
 
+intervals :: Double -> Double -> Int -> [(Double, Double)]
+intervals start end n =
+  map (mkInterval . fromIntegral) [0 .. n - 1]
+  where
+    mkInterval i =
+      ( start + i * step,
+        start + (i + 1) * step
+      )
+
+    len = end - start
+    step = len / fromIntegral n
+
+---
+
 semigroupDistributeOpts :: DistributeOpts -> DistributeOpts -> DistributeOpts
 semigroupDistributeOpts a b =
   DistributeOpts
@@ -100,3 +116,6 @@ firstUnlessDefault f a b =
     else f a
 
 ---
+
+eps :: Double
+eps = 0.05

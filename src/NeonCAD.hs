@@ -262,7 +262,11 @@ module NeonCAD
     CanSpinYZ (spinYZ),
     CanSpinX (spinX),
     CanSpinY (spinY),
+    spinBackY,
+    withSpinY,
     CanSpinZ (spinZ),
+    spinBackZ,
+    withSpinZ,
 
     -- ** Mirror
     CanMirrorXYZ (mirrorXYZ),
@@ -2289,6 +2293,9 @@ class HasPoints v a | a -> v where
 class HasSize o a | a -> o where
   size :: o -> a
 
+class SizeXYZ a where
+  sizeXYZ :: V3 Double -> a
+
 class HasFaces a where
   faces :: [V3 Int] -> a
 
@@ -2435,8 +2442,20 @@ class CanSpinX a where
 class CanSpinY a where
   spinY :: Double -> a -> a
 
+spinBackY :: (CanSpinY a) => Double -> a -> a
+spinBackY y = spinY (-y)
+
+withSpinY :: (CanSpinY a) => Double -> (a -> a) -> a -> a
+withSpinY y f = spinBackY y . f . spinY y
+
 class CanSpinZ a where
   spinZ :: Double -> a -> a
+
+spinBackZ :: (CanSpinZ a) => Double -> a -> a
+spinBackZ z = spinZ (-z)
+
+withSpinZ :: (CanSpinZ a) => Double -> (a -> a) -> a -> a
+withSpinZ z f = spinBackZ z . f . spinZ z
 
 class CanMirrorXYZ a where
   mirrorXYZ :: V3 Double -> a -> a

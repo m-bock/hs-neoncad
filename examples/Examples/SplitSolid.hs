@@ -43,30 +43,6 @@ splitSolid' splitModelM modelM =
 j :: (MonadNeon m) => Axis -> m Model3D
 j ax = axisToFn ax (infinity / 2) $ box $ size (V3 infinity infinity infinity)
 
-drawThing :: (MonadNeon m) => m Model3D
-drawThing =
-  unions
-    [ mod transparent $
-        comment "tube" $
-          difference
-            ( cylinder $
-                diameter dia <> height h
-            )
-            ( cylinder $
-                diameter (dia - wall) <> height (h + clear)
-            ),
-      comment "rings" $
-        distribute (axis Z <> length (h - 3)) $
-          replicate 10 $
-            comment "ring" $
-              drawRing $
-                height 3.0 <> outerDiameter dia <> innerDiameter 3.0
-    ]
-  where
-    dia = 60
-    wall = 1.5
-    h = 200
-
 type WithFn a = (a -> a) -> a -> a
 
 splitSolidWith :: (MonadNeon m) => WithFn (m Model3D) -> m Model3D -> m Model3D -> (m Model3D, m Model3D)
@@ -85,84 +61,24 @@ splitSolidWith' withFn splitModel modelM =
 
 ---
 
+chopSuey :: (MonadNeon m) => WithFn (m Model3D) -> Double -> Int -> m Model3D -> [m Model3D]
+chopSuey with d n m =
+  zipWith
+    ( \(start, end) i ->
+        comment ("slice " ++ show i) $
+          with
+            ( intersection
+                (moveX start $ box $ size (V3 (end - start) infinity infinity) <> placeX origin)
+            )
+            m
+    )
+    (intervals (-d / 2) (d / 2) n)
+    [0 ..]
+
 example :: (MonadNeon m) => [m Model3D]
-example = foldl (\acc _ -> acc) [] []
-  where
-    -- splitSolidWith (withMoveXYZ (V3 0 10 0)) (j Y) (cube mempty)
-
-    degrees = 30
-
--- before = spinX degrees
--- after = spinX (-degrees)
+example = chopSuey (withSpinZ 20) 200.0 20 (box $ size (V3 100 100 100))
 
 ---
-
-data DrawRingOpts = DrawRingOpts
-  { drawRingOptsInnerDiameter :: Double,
-    drawRingOptsOuterDiameter :: Double,
-    drawRingOptsHeight :: Double
-  }
-  deriving (Eq)
-
-instance Monoid DrawRingOpts where
-  mempty =
-    DrawRingOpts
-      { drawRingOptsInnerDiameter = 80,
-        drawRingOptsOuterDiameter = 100,
-        drawRingOptsHeight = 0
-      }
-
-instance Semigroup DrawRingOpts where
-  (<>) = semigroupDrawRingOpts
-
-instance HasHeight DrawRingOpts where
-  height v = mempty {drawRingOptsHeight = v}
-
-instance HasInnerDiameter Double DrawRingOpts where
-  innerDiameter v = mempty {drawRingOptsInnerDiameter = v}
-
-instance HasOuterDiameter Double DrawRingOpts where
-  outerDiameter v = mempty {drawRingOptsOuterDiameter = v}
-
----
-
-drawRing :: (MonadNeon m) => DrawRingOpts -> m Model3D
-drawRing opts =
-  comment "ring" $
-    difference
-      ( comment "outer" $
-          cylinder $
-            diameter diaOuter <> height h
-      )
-      ( comment "inner" $
-          cylinder $
-            diameter diaInner <> height (h + clear * 2)
-      )
-  where
-    diaInner = opts.drawRingOptsInnerDiameter
-    diaOuter = opts.drawRingOptsOuterDiameter
-    h = opts.drawRingOptsHeight
-
----
-
-class HasInnerDiameter o a | a -> o where
-  innerDiameter :: o -> a
-
-class HasOuterDiameter o a | a -> o where
-  outerDiameter :: o -> a
-
----
-
-semigroupDrawRingOpts :: DrawRingOpts -> DrawRingOpts -> DrawRingOpts
-semigroupDrawRingOpts a b =
-  DrawRingOpts
-    { drawRingOptsInnerDiameter =
-        firstUnlessDefault (\x -> x.drawRingOptsInnerDiameter) a b,
-      drawRingOptsOuterDiameter =
-        firstUnlessDefault (\x -> x.drawRingOptsOuterDiameter) a b,
-      drawRingOptsHeight =
-        firstUnlessDefault (\x -> x.drawRingOptsHeight) a b
-    }
 
 evenOdds :: [a] -> ([a], [a])
 evenOdds xs =
@@ -178,7 +94,7 @@ main = do
 
   writeFile
     (docImgsPath ++ "/split-solid.scad")
-    (render3D $ unions example)
+    (render3D $ unions [unions m1, mod transparent $ unions m2])
 
   writeFile
     (docImgsPath ++ "/split-solid-1.scad")
