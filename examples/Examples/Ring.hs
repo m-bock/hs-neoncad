@@ -27,10 +27,10 @@ instance Monoid DrawRingOpts where
 instance HasHeight DrawRingOpts where
   height v = mempty {drawRingOptsHeight = v}
 
-instance HasInnerDiameter Double DrawRingOpts where
+instance HasInnerDiameter DrawRingOpts where
   innerDiameter v = mempty {drawRingOptsInnerDiameter = v}
 
-instance HasOuterDiameter Double DrawRingOpts where
+instance HasOuterDiameter DrawRingOpts where
   outerDiameter v = mempty {drawRingOptsOuterDiameter = v}
 
 drawRing :: (MonadNeon m) => DrawRingOpts -> m Model3D
@@ -52,11 +52,11 @@ drawRing opts =
 
 ---
 
-class HasInnerDiameter o a | a -> o where
-  innerDiameter :: o -> a
+class HasInnerDiameter a where
+  innerDiameter :: Double -> a
 
-class HasOuterDiameter o a | a -> o where
-  outerDiameter :: o -> a
+class HasOuterDiameter a where
+  outerDiameter :: Double -> a
 
 example :: (MonadNeon m) => m Model3D
 example =
