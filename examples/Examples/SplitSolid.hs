@@ -31,9 +31,9 @@ infinity = 1000
 type WithFn a = (a -> a) -> a -> a
 
 data ChopSueyOpts m = ChopSueyOpts
-  { chopSueyOptsTransform :: First (WithFn (m Model3D)),
-    chopSueyOptsLength :: Double,
-    chopSueyOptsCount :: Int
+  { transform :: First (WithFn (m Model3D)),
+    length :: Double,
+    count :: Int
   }
   deriving (Generic)
 
@@ -43,19 +43,19 @@ instance Semigroup (ChopSueyOpts m) where
 instance Monoid (ChopSueyOpts m) where
   mempty =
     ChopSueyOpts
-      { chopSueyOptsTransform = First Nothing,
-        chopSueyOptsLength = 0,
-        chopSueyOptsCount = 0
+      { transform = First Nothing,
+        length = 0,
+        count = 0
       }
 
 instance HasLength (ChopSueyOpts m) where
-  length v = mempty {chopSueyOptsLength = v}
+  length v = mempty {length = v}
 
 instance HasCount (ChopSueyOpts m) where
-  count v = mempty {chopSueyOptsCount = v}
+  count v = mempty {count = v}
 
 instance HasTransform (m Model3D) (ChopSueyOpts m) where
-  transform v = mempty {chopSueyOptsTransform = First $ Just v}
+  transform v = mempty {transform = First $ Just v}
 
 class HasTransform b a | a -> b where
   transform :: WithFn b -> a
@@ -74,17 +74,17 @@ chopSuey opts m =
     (intervals (-d / 2) (d / 2) n)
     [0 ..]
   where
-    d = opts.chopSueyOptsLength
-    n = opts.chopSueyOptsCount
-    with = case getFirst opts.chopSueyOptsTransform of
+    d = opts.length
+    n = opts.count
+    with = case getFirst opts.transform of
       Just with -> with
       Nothing -> \_ -> id
 
 example :: (MonadNeon m) => [m Model3D]
 example =
   chopSuey
-    (transform (withSpinZ 45) <> length 100 <> count 20)
-    (box $ size (V3 55 30 20))
+    (transform (withSpinZ 40) <> length 100 <> count 15)
+    (spinX 15 $ spinY 15 $ box $ size (V3 60 30 20))
 
 ---
 

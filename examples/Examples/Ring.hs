@@ -15,9 +15,9 @@ class HasOuterDiameter a where
 -------------------------------------------------------------------------------
 
 data DrawRingOpts = DrawRingOpts
-  { drawRingOptsInnerDiameter :: Double,
-    drawRingOptsOuterDiameter :: Double,
-    drawRingOptsHeight :: Double
+  { innerDiameter :: Double,
+    outerDiameter :: Double,
+    height :: Double
   }
   deriving (Eq, Generic)
   deriving (Semigroup) via (SemigroupPlus DrawRingOpts)
@@ -25,19 +25,19 @@ data DrawRingOpts = DrawRingOpts
 instance Monoid DrawRingOpts where
   mempty =
     DrawRingOpts
-      { drawRingOptsInnerDiameter = 80,
-        drawRingOptsOuterDiameter = 100,
-        drawRingOptsHeight = 0
+      { innerDiameter = 80,
+        outerDiameter = 100,
+        height = 0
       }
 
 instance HasHeight DrawRingOpts where
-  height v = mempty {drawRingOptsHeight = v}
+  height v = mempty {height = v}
 
 instance HasInnerDiameter DrawRingOpts where
-  innerDiameter v = mempty {drawRingOptsInnerDiameter = v}
+  innerDiameter v = mempty {innerDiameter = v}
 
 instance HasOuterDiameter DrawRingOpts where
-  outerDiameter v = mempty {drawRingOptsOuterDiameter = v}
+  outerDiameter v = mempty {outerDiameter = v}
 
 drawRing :: (MonadNeon m) => DrawRingOpts -> m Model3D
 drawRing opts =
@@ -52,9 +52,9 @@ drawRing opts =
             diameter diaInner <> height (h + eps * 2)
       )
   where
-    diaInner = opts.drawRingOptsInnerDiameter
-    diaOuter = opts.drawRingOptsOuterDiameter
-    h = opts.drawRingOptsHeight
+    diaInner = opts.innerDiameter
+    diaOuter = opts.outerDiameter
+    h = opts.height
 
 -------------------------------------------------------------------------------
 
