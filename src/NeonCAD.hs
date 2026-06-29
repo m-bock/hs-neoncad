@@ -181,6 +181,7 @@ module NeonCAD
     HasCount (count),
     HasMaxSize (maxSize),
     HasMaxAngle (maxAngle),
+    defaultFacets,
 
     -- ** Diameter
     HasDiameter (diameter),
@@ -324,6 +325,7 @@ module NeonCAD
     -- ** Custom Monads
     NeonT,
     runNeonT,
+    liftNeonT,
     renderModel2D,
     renderModel3D,
   )
@@ -492,6 +494,9 @@ newtype NeonT m a = NeonT (Facets -> m a)
   deriving (Functor)
 
 type NeonM = NeonT Identity
+
+liftNeonT :: (Monad m) => m a -> NeonT m a
+liftNeonT m = NeonT $ \_ -> m
 
 runNeonT :: Facets -> NeonT m a -> m a
 runNeonT factes (NeonT f) = f factes

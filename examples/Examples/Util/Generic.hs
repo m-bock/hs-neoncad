@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE ExplicitForAll #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -36,12 +37,12 @@ instance (Semi f1, Semi f2) => Semi (f1 :*: f2) where
 
 class SemigroupPlusField a where
   semigroupPlusField :: a -> a -> a -> a
+  default semigroupPlusField :: (Eq a) => a -> a -> a -> a
+  semigroupPlusField def x y = if x == def then y else x
 
-instance SemigroupPlusField Double where
-  semigroupPlusField = firstUnlessDefault
+instance SemigroupPlusField Double
 
-instance SemigroupPlusField Int where
-  semigroupPlusField = firstUnlessDefault
+instance SemigroupPlusField Int
 
 instance SemigroupPlusField (First a) where
   semigroupPlusField _ x y = x <> y

@@ -1,15 +1,17 @@
 module Main where
 
-import qualified Examples.BoxWithHoles
-import qualified Examples.BuckConverterCase
-import qualified Examples.BuiltinShapes2D
-import qualified Examples.Ring
-import qualified Examples.SplitSolid
+import Examples.BoxWithHoles qualified
+import Examples.BuckConverterCase qualified
+import Examples.BuiltinShapes2D qualified
+import Examples.Random qualified
+import Examples.Ring qualified
+import Examples.SplitSolid qualified
 
 main :: IO ()
 main = do
-    Examples.BoxWithHoles.main
-    Examples.BuckConverterCase.main
-    Examples.SplitSolid.main
-    Examples.BuiltinShapes2D.main
-    Examples.Ring.main
+  Examples.BoxWithHoles.main
+  Examples.BuckConverterCase.main
+  Examples.SplitSolid.main
+  Examples.BuiltinShapes2D.main
+  Examples.Ring.main
+  Examples.Random.main
