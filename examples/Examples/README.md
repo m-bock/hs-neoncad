@@ -22,7 +22,8 @@
 
 <img src="../../examples-out/ring.png" alt="Ring">
 
-<!--
-### 3D print
-<img src="../../assets/buck-converter-case.jpg" alt="Buck Converter Case">
--->
+## Random
+
+### Preview
+
+<img src="../../examples-out/random.png" alt="Random">
