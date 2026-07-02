@@ -151,5 +151,5 @@ main :: IO ()
 main = do
   docImgsPath <- getEnv "EXAMPLES_DIR"
   writeFile
-    (docImgsPath ++ "/builtin-shapes-2d.scad")
+    (docImgsPath ++ "/scad/builtin-shapes-2d.scad")
     (render3D example)

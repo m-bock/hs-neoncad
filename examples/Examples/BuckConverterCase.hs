@@ -168,7 +168,7 @@ main :: IO ()
 main = do
   docImgsPath <- getEnv "EXAMPLES_DIR"
   writeFile
-    (docImgsPath ++ "/buck-converter-case.scad")
+    (docImgsPath ++ "/scad/buck-converter-case.scad")
     (render3D example)
 
 -- utils

@@ -4,7 +4,7 @@
 
 ### Preview
 
-<img src="../../examples-out/box-with-holes.png" alt="Box With Holes">
+<img src="../../examples-out/png/box-with-holes.png" alt="Box With Holes">
 
 ### 3D Print
 
@@ -14,22 +14,22 @@
 
 ### Preview
 
-<img src="../../examples-out/buck-converter-case.png" alt="Buck Converter Case">
+<img src="../../examples-out/png/buck-converter-case.png" alt="Buck Converter Case">
 
 ## Ring
 
 ### Preview
 
-<img src="../../examples-out/ring.png" alt="Ring">
+<img src="../../examples-out/png/ring.png" alt="Ring">
 
 ## Random
 
 ### Preview
 
-<img src="../../examples-out/random.png" alt="Random">
+<img src="../../examples-out/png/random.png" alt="Random">
 
 ## Hole Test
 
 ### Preview
 
-<img src="../../examples-out/hole-test.png" alt="Hole Test">
+<img src="../../examples-out/png/hole-test.png" alt="Hole Test">

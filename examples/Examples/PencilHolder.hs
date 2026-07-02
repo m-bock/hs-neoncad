@@ -14,5 +14,5 @@ main :: IO ()
 main = do
   docImgsPath <- getEnv "EXAMPLES_DIR"
   writeFile
-    (docImgsPath ++ "/pencil-holder-2.scad")
+    (docImgsPath ++ "/scad/pencil-holder.scad")
     (render3D example)

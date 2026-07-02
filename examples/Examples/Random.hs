@@ -45,5 +45,5 @@ main :: IO ()
 main = do
   docImgsPath <- getEnv "EXAMPLES_DIR"
   writeFile
-    (docImgsPath ++ "/random.scad")
+    (docImgsPath ++ "/scad/random.scad")
     (renderModel3D $ run 42 example)

@@ -9,6 +9,10 @@ import tempfile
 from pathlib import Path
 from typing import Any, Optional
 
+SCAD_DIR = "scad"
+PNG_DIR = "png"
+STL_DIR = "stl"
+
 
 def env_flag(name: str) -> bool:
     return os.environ.get(name, "false").lower() == "true"
@@ -72,6 +76,7 @@ def run(cmd: list[str]) -> None:
 
 def render_png(scad: Path, png: Path, size: int, camera: Optional[str]) -> None:
     print(f"Generating image for {scad}")
+    png.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
         tmp_path = Path(tmp.name)
     try:
@@ -88,13 +93,18 @@ def render_png(scad: Path, png: Path, size: int, camera: Optional[str]) -> None:
 
 def render_stl(scad: Path, stl: Path) -> None:
     print(f"Generating STL for {scad}")
+    stl.parent.mkdir(parents=True, exist_ok=True)
     run(["openscad", "-o", str(stl), str(scad)])
     print("done.")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Render OpenSCAD files to PNG and STL")
-    parser.add_argument("dir", type=Path, help="directory containing .scad files")
+    parser.add_argument(
+        "dir",
+        type=Path,
+        help=f"directory containing {SCAD_DIR}/, {PNG_DIR}/, and {STL_DIR}/ subdirectories",
+    )
     parser.add_argument("size", type=int, help="PNG output size in pixels")
     args = parser.parse_args()
 
@@ -106,15 +116,20 @@ def main() -> int:
     )
     viewports = load_viewports(viewports_file)
 
-    for scad in sorted(args.dir.glob("*.scad")):
-        png = scad.with_suffix(".png")
-        stl = scad.with_suffix(".stl")
+    scad_dir = args.dir / SCAD_DIR
+    png_dir = args.dir / PNG_DIR
+    stl_dir = args.dir / STL_DIR
+
+    for scad in sorted(scad_dir.glob("*.scad")):
+        name = scad.stem
+        png = png_dir / f"{name}.png"
+        stl = stl_dir / f"{name}.stl"
 
         if not no_skip and should_skip(scad, png, stl, skip_png, skip_stl):
             print(f"Skipping {scad} (unchanged)")
             continue
 
-        camera = camera_string(viewports.get(scad.stem))
+        camera = camera_string(viewports.get(name))
 
         if not skip_png:
             render_png(scad, png, args.size, camera)

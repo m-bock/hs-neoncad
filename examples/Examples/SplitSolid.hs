@@ -101,15 +101,15 @@ main = do
   let (m1, m2) = splitEvenOdd example
 
   writeFile
-    (docImgsPath ++ "/split-solid.scad")
+    (docImgsPath ++ "/scad/split-solid.scad")
     (render3D $ unions [unions m1, mod transparent $ moveZ 10 $ unions m2])
 
   writeFile
-    (docImgsPath ++ "/split-solid-1.scad")
+    (docImgsPath ++ "/scad/split-solid-1.scad")
     (render3D $ unions m1)
 
   writeFile
-    (docImgsPath ++ "/split-solid-2.scad")
+    (docImgsPath ++ "/scad/split-solid-2.scad")
     (render3D $ unions m2)
 
 ---

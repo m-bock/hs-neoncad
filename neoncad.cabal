@@ -8,7 +8,7 @@ maintainer: no-day@posteo.net
 build-type: Simple
 extra-doc-files:
   CHANGELOG.md
-  doc-imgs/*.png
+  doc-imgs/png/*.png
 
 common warnings
   ghc-options: -Wall

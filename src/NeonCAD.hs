@@ -46,49 +46,49 @@ module NeonCAD
     -- ** Box
 
     -- |
-    -- ![box](doc-imgs/box.png)
+    -- ![box](doc-imgs/png/box.png)
     box,
     BoxOpts,
 
     -- ** Cube
 
     -- |
-    -- ![cube](doc-imgs/cube.png)
+    -- ![cube](doc-imgs/png/cube.png)
     cube,
     CubeOpts,
 
     -- ** Sphere
 
     -- |
-    -- ![sphere](doc-imgs/sphere.png)
+    -- ![sphere](doc-imgs/png/sphere.png)
     sphere,
     SphereOpts,
 
     -- ** Ellipsoid
 
     -- |
-    -- ![ellipsoid](doc-imgs/ellipsoid.png)
+    -- ![ellipsoid](doc-imgs/png/ellipsoid.png)
     ellipsoid,
     EllipsoidOpts,
 
     -- ** Frustum
 
     -- |
-    -- ![frustum](doc-imgs/frustum.png)
+    -- ![frustum](doc-imgs/png/frustum.png)
     frustum,
     FrustumOpts,
 
     -- ** Cylinder
 
     -- |
-    -- ![cylinder](doc-imgs/cylinder.png)
+    -- ![cylinder](doc-imgs/png/cylinder.png)
     cylinder,
     CylinderOpts,
 
     -- ** Polyhedron
 
     -- |
-    -- ![polyhedron](doc-imgs/polyhedron.png)
+    -- ![polyhedron](doc-imgs/png/polyhedron.png)
     polyhedron,
     PolyhedronOpts,
 
@@ -97,42 +97,42 @@ module NeonCAD
     -- ** Rect
 
     -- |
-    -- ![rect](doc-imgs/rect.png)
+    -- ![rect](doc-imgs/png/rect.png)
     rect,
     RectOpts,
 
     -- ** Square
 
     -- |
-    -- ![square](doc-imgs/square.png)
+    -- ![square](doc-imgs/png/square.png)
     square,
     SquareOpts,
 
     -- ** Polygon
 
     -- |
-    -- ![polygon](doc-imgs/polygon.png)
+    -- ![polygon](doc-imgs/png/polygon.png)
     polygon,
     PolygonOpts,
 
     -- ** Ellipse
 
     -- |
-    -- ![ellipse](doc-imgs/ellipse.png)
+    -- ![ellipse](doc-imgs/png/ellipse.png)
     ellipse,
     EllipseOpts,
 
     -- ** Circle
 
     -- |
-    -- ![circle](doc-imgs/circle.png)
+    -- ![circle](doc-imgs/png/circle.png)
     circle,
     CircleOpts,
 
     -- * Text
 
     -- |
-    -- ![text](doc-imgs/text.png)
+    -- ![text](doc-imgs/png/text.png)
     text,
     HasFontName (fontName),
     HasFontStyle (fontStyle),

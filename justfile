@@ -32,7 +32,7 @@ push-docs:
     npx gh-pages -d {{DOCS_DIR}}
 
 gen-examples:
-    mkdir -p {{EXAMPLES_DIR}}
+    mkdir -p {{EXAMPLES_DIR}}/scad
     EXAMPLES_DIR={{EXAMPLES_DIR}} cabal run neoncad-examples
     SKIP_PNG={{SKIP_PNG}} SKIP_STL={{SKIP_STL}} NO_SKIP={{NO_SKIP}} just _render-scad {{EXAMPLES_DIR}} {{EXAMPLE_IMG_SIZE}}
 

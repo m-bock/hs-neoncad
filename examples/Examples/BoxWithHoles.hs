@@ -95,5 +95,5 @@ main :: IO ()
 main = do
   docImgsPath <- getEnv "EXAMPLES_DIR"
   writeFile
-    (docImgsPath ++ "/box-with-holes.scad")
+    (docImgsPath ++ "/scad/box-with-holes.scad")
     (render3D example)

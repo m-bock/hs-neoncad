@@ -1,7 +1,7 @@
 /out/
 /doc-imgs/
 /docs/
-/examples-out/*.stl
+/examples-out/stl/
 
 # Cabal / GHC
 dist/

@@ -67,5 +67,5 @@ main :: IO ()
 main = do
   docImgsPath <- getEnv "EXAMPLES_DIR"
   writeFile
-    (docImgsPath ++ "/ring.scad")
+    (docImgsPath ++ "/scad/ring.scad")
     (render3D example)
