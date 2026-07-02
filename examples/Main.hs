@@ -3,6 +3,7 @@ module Main where
 import Examples.BoxWithHoles qualified
 import Examples.BuckConverterCase qualified
 import Examples.BuiltinShapes2D qualified
+import Examples.HoleTest qualified
 import Examples.PencilHolder qualified
 import Examples.Random qualified
 import Examples.Ring qualified
@@ -16,4 +17,5 @@ main = do
   Examples.BuiltinShapes2D.main
   Examples.Ring.main
   Examples.Random.main
+  Examples.HoleTest.main
   Examples.PencilHolder.main

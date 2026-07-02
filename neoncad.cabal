@@ -71,6 +71,7 @@ executable neoncad-examples
     Examples.BoxWithHoles
     Examples.BuckConverterCase
     Examples.BuiltinShapes2D
+    Examples.HoleTest
     Examples.PencilHolder
     Examples.Random
     Examples.Ring

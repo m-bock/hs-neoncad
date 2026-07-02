@@ -27,3 +27,9 @@
 ### Preview
 
 <img src="../../examples-out/random.png" alt="Random">
+
+## Hole Test
+
+### Preview
+
+<img src="../../examples-out/hole-test.png" alt="Hole Test">
