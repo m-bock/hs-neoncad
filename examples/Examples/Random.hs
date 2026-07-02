@@ -14,9 +14,9 @@ class (Monad m) => MonadGen m where
   uniformM :: (Uniform a) => m a
   uniformRM :: (UniformRange a) => (a, a) -> m a
 
-example :: (MonadNeon m, MonadGen m) => m Model3D
-example = do
-  xs :: [Model3D] <- for [0 .. 20] $ \i -> do
+drawPile :: forall m. (MonadNeon m, MonadGen m) => m Model3D
+drawPile =
+  fmap unions $ for [0 .. 20] $ \i -> do
     angleZ <- uniformRM (0, 360)
     l <- uniformRM (80, 100)
     h <- uniformRM (10, 30)
@@ -25,8 +25,10 @@ example = do
         box $
           placeZ origin <> size (V3 l l h)
 
+example :: forall m. (MonadNeon m, MonadGen m) => m Model3D
+example = do
   difference
-    (unions $ map pure xs)
+    drawPile
     (cylinder $ diameter 80 <> height 1000)
 
 newtype M a = M (NeonT (State StdGen) a)

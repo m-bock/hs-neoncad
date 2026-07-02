@@ -548,6 +548,15 @@ instance IsRight HorizontalAlignment where
 instance IsCenter HorizontalAlignment where
   center = HACenter
 
+instance IsTop VerticalAlignment where
+  top = VATop
+
+instance IsBottom VerticalAlignment where
+  bottom = VABottom
+
+instance IsCenter VerticalAlignment where
+  center = VACenter
+
 -------------------------------------------------------------------------------
 -- / Attributes / HasPlacement
 -------------------------------------------------------------------------------
@@ -961,6 +970,10 @@ instance (MonadNeon m) => CanUnion (m Model2D) where
     pure $ BoolOp2D Union2D models
 
 -- * 3D
+
+instance CanUnion Model3D where
+  union modelA modelB = BoolOp3D Union3D [modelA, modelB]
+  unions models = BoolOp3D Union3D models
 
 instance (MonadNeon m) => CanUnion (m Model3D) where
   union modelAM modelBM = do
@@ -1452,6 +1465,9 @@ instance HasVerticalAlignment TextOpts where
 
 instance HasSpacing TextOpts where
   spacing s = TextOpts $ mempty {textOptsSpacing = First $ Just s}
+
+instance HasSize Double TextOpts where
+  size v = TextOpts $ mempty {textOptsSize = First $ Just v}
 
 fallbackTextOpts :: TextOptsInternal Identity
 fallbackTextOpts =
@@ -2520,6 +2536,12 @@ class IsCenter a where
 
 class IsOrigin a where
   origin :: a
+
+class IsTop a where
+  top :: a
+
+class IsBottom a where
+  bottom :: a
 
 -------------------------------------------------------------------------------
 
